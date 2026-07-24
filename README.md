@@ -38,6 +38,7 @@
 - [Dashboard 設計](docs/Dashboard_Design.md)
 - [AI 分析引擎](docs/AI_Analysis_Engine.md)
 - [開發路線圖](docs/Development_Roadmap.md)
+- [2026 原始財務活頁簿評估](docs/Source_Workbook_Assessment.md)
 - [決策紀錄](docs/Decision_Log.md)
 - [變更紀錄](docs/CHANGELOG.md)
 - [待辦清單](TODO.md)
