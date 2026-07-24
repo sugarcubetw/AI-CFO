@@ -27,12 +27,16 @@ erDiagram
 |---|---|---:|---|
 | id | UUID | 是 | 交易唯一識別碼 |
 | transaction_date | date | 是 | 報表歸屬日 |
+| cash_date | date | 否 | 實際收付款日；現金流使用 |
+| recognition_date | date | 否 | 收入／費用認列日；損益使用 |
 | transaction_type | enum | 是 | income、expense、refund、loan_principal、loan_interest、transfer、owner_contribution、owner_withdrawal、adjustment |
 | account_id | UUID | 是 | 財務科目 |
 | amount | decimal(18,2) | 是 | 正數 |
 | money_account_id | UUID | 是 | 實際收付帳戶 |
 | counterparty_account_id | UUID | 否 | 轉帳對方帳戶 |
 | revenue_source_id | UUID | 否 | 收入來源 |
+| booking_ref | varchar(100) | 否 | 訂房參考碼；連結訂金與尾款 |
+| payment_stage | enum | 否 | deposit、balance、full、refund |
 | room_id | UUID | 否 | 房號；僅在可合理歸屬時填 |
 | vendor_id | UUID | 否 | 供應商／收付款對象 |
 | payment_method | enum | 否 | 現金、轉帳、信用卡等 |
@@ -53,6 +57,8 @@ erDiagram
 - `transaction_date >= 2026-01-01`，期初餘額例外
 - transfer 必須有 `counterparty_account_id`
 - income／refund 才可使用 `revenue_source_id`
+- 住宿收入的 deposit／balance 必須有 `booking_ref`
+- 同一 `booking_ref` 的收入來源與服務期間應一致
 - 已關帳期間的 posted 交易禁止直接修改
 
 ### categories
@@ -91,7 +97,6 @@ erDiagram
 | WEBSITE | 官網 | 啟用 |
 | PHONE | 電話訂房 | 啟用 |
 | BUSINESS | 公務住宿 | 啟用 |
-| WALKIN | 現場付款 | 暫啟用，待釐清 |
 | EVENT | 活動收入 | 啟用 |
 | AGODA | Agoda | 停用／未來 |
 | AIRBNB | Airbnb | 停用／未來 |
@@ -211,7 +216,7 @@ erDiagram
 - `accounts.code` 唯一。
 - `rooms.room_no` 唯一。
 - `revenue_sources.code` 唯一。
-- 建議索引：`transaction_date`、`account_id`、`money_account_id`、`revenue_source_id`、`import_batch_id`。
+- 建議索引：`transaction_date`、`cash_date`、`recognition_date`、`booking_ref`、`account_id`、`money_account_id`、`revenue_source_id`、`import_batch_id`。
 - 可用 `document_no + amount + transaction_date` 作為重複偵測信號，但不可當唯一限制。
 
 ## 6. 資料保留與隱私
