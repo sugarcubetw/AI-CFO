@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "name": "AI-CFO",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true,
+    "git.autofetch": true,
+    "markdown.validate.enabled": true
+  }
+}

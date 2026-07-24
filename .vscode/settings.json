@@ -1,0 +1,6 @@
+{
+  "editor.formatOnSave": true,
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "markdown.validate.enabled": true
+}
