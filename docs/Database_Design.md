@@ -37,6 +37,10 @@ erDiagram
 | revenue_source_id | UUID | 否 | 收入來源 |
 | booking_ref | varchar(100) | 否 | 訂房參考碼；連結訂金與尾款 |
 | payment_stage | enum | 否 | deposit、balance、full、refund |
+| source_system | varchar(50) | 否 | PMS／平台來源 |
+| source_event_id | varchar(150) | 否 | 來源事件唯一識別碼 |
+| source_event_version | integer | 否 | 來源事件版本 |
+| booking_status | enum | 否 | pending、confirmed、checked_in、completed、cancelled、no_show |
 | room_id | UUID | 否 | 房號；僅在可合理歸屬時填 |
 | vendor_id | UUID | 否 | 供應商／收付款對象 |
 | payment_method | enum | 否 | 現金、轉帳、信用卡等 |
@@ -59,6 +63,7 @@ erDiagram
 - income／refund 才可使用 `revenue_source_id`
 - 住宿收入的 deposit／balance 必須有 `booking_ref`
 - 同一 `booking_ref` 的收入來源與服務期間應一致
+- `source_system + source_event_id + source_event_version` 組合不得重複入帳
 - 已關帳期間的 posted 交易禁止直接修改
 
 ### categories
@@ -218,6 +223,7 @@ erDiagram
 - `revenue_sources.code` 唯一。
 - 建議索引：`transaction_date`、`cash_date`、`recognition_date`、`booking_ref`、`account_id`、`money_account_id`、`revenue_source_id`、`import_batch_id`。
 - 可用 `document_no + amount + transaction_date` 作為重複偵測信號，但不可當唯一限制。
+- PMS 事件必須以 `source_system + source_event_id + source_event_version` 建立唯一限制。
 
 ## 6. 資料保留與隱私
 
@@ -238,6 +244,8 @@ PMS 整合再新增：
 - room_inventory_daily
 - reservations
 - room_revenue_daily
+
+PMS 是訂房、訂金比例、尾款條件及訂單狀態的權威來源；AI CFO 僅建立唯讀匯入介面，不對 PMS 回寫。
 
 ## 8. 待確認
 
