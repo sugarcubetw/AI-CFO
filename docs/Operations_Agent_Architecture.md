@@ -2,7 +2,7 @@
 
 ## 1. 目標
 
-在方糖民宿的營運電腦長期運行本地 Agent，將無 API 的 PMS 訂單、住客需求、採購、工作通知及 AI CFO 串成一個可追溯系統。經營者主要透過手機 LINE 溝通，工作群組接收必要提醒。
+在方糖民宿每日開機的 Mac 運行本地 Agent，將目前未取得可用 API 文件的 OwlTing OwlNest 訂單、住客需求、採購、工作通知、HomeKit Shortcuts 及 AI CFO 串成一個可追溯系統。經營者主要透過 ChatGPT 手機 App 的私人 GPT 溝通，LINE 工作群組接收必要提醒。
 
 ## 2. 系統邊界
 
@@ -33,8 +33,10 @@ flowchart LR
     Actions --> Gateway["指令、驗證與權限入口"]
     LINE["LINE Messaging API"] --> Gateway
     Gateway --> DB
-    DB --> Rules["規則／排程引擎"]
     DB --> CFO["AI CFO 財務核心"]
+    DB --> Rules["確定性規則引擎"]
+    Rules --> Shortcuts["白名單 Shortcuts"]
+    Shortcuts --> HomeKit["HomeKit"]
     Rules --> LINE
     CFO --> Insight["AI 分析資料包"]
     Insight --> LINE
@@ -53,12 +55,13 @@ flowchart LR
 | ChatGPT Actions API | 讓私人 GPT 從手機安全查詢或建立待確認操作 |
 | AI Layer | 自然語言解析、摘要與建議；不得直接寫入正式交易 |
 | Audit Log | 記錄來源、時間、差異、操作人與核准結果 |
+| Shortcut Runner | 僅執行規則引擎選出的白名單 Shortcut |
 
 V1 原型可用 SQLite；多服務、遠端存取或資料量增加後轉 PostgreSQL。
 
 ## 5. PMS 擷取策略
 
-1. 先確認系統商條款及帳戶允許自動化存取。
+1. 先確認 OwlNest 系統商條款及帳戶允許自動化存取。
 2. 優先尋找 PMS 內建 CSV／Excel 下載或列印資料。
 3. 無匯出時使用瀏覽器自動化唯讀擷取。
 4. 人工登入一次後保存登入狀態；憑證及 Cookie 放在本機私有目錄並排除 Git。
@@ -167,9 +170,13 @@ Apps SDK／MCP 仍保留為未來介面；截至目前，ChatGPT 自訂 MCP App 
 
 加入健康檢查、備份、稽核、權限、失敗通知及操作手冊。
 
+### G. HomeKit／Shortcuts
+
+先完成設備與 Shortcut 清冊，再用確定性規則引擎執行。AI 不得直接指定 HomeKit 裝置命令；抽水馬達等高風險設備在用途及安全預設確認前保持停用。
+
 ## 11. 開始 PMS 原型前需要的資料
 
-- PMS 系統網址及系統商名稱。
+- OwlNest 正式登入網址。
 - 可供測試的帳號；密碼不要放入 Git 或聊天。
 - 是否有二階段驗證或 CAPTCHA。
 - 訂單列表、訂單詳情及付款頁面的遮蔽個資截圖。
@@ -184,3 +191,10 @@ Apps SDK／MCP 仍保留為未來介面；截至目前，ChatGPT 自訂 MCP App 
 - [Database Design](Database_Design.md)
 - [Development Roadmap](Development_Roadmap.md)
 - [Business Rules](Business_Rules.md)
+- [AI Development Handoff](AI_Development_Handoff.md)
+- [Operations Data Model](Operations_Data_Model.md)
+- [OwlNest PMS Integration](OwlNest_PMS_Integration.md)
+- [Mobile ChatGPT Actions](Mobile_ChatGPT_Actions.md)
+- [LINE Notification Design](LINE_Notification_Design.md)
+- [HomeKit Shortcuts Design](HomeKit_Shortcuts_Design.md)
+- [Acceptance Test Plan](Acceptance_Test_Plan.md)

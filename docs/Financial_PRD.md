@@ -10,6 +10,8 @@
 
 ## 2. 產品範圍
 
+本文件定義財務核心。OwlNest、ChatGPT 手機、LINE 及 HomeKit 為後續營運 Agent 工作包，詳見 [AI Development Handoff](AI_Development_Handoff.md)。截至 2026-07-26，這些整合只有規格，尚未實作。
+
 ### V1 必做
 
 - 單一交易資料表與匯入驗證。

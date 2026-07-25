@@ -11,6 +11,7 @@
 - 本批 Markdown 規格。
 - 已知假設與待確認清單。
 - 初版科目與資料模型。
+- AI 開發交接、OwlNest、ChatGPT Actions、LINE、HomeKit 與驗收規格。
 
 完成條件：
 
@@ -97,7 +98,8 @@
 ## 8. Phase 2
 
 - 固定資產與折舊。
-- 訂閱及貸款排程。
+- 固定資產清冊由使用者盤點後匯入。
+- 訂閱、年繳費用攤提及貸款排程。
 - 預算 vs 實際。
 - 現金流預測。
 - PDF 月報。
@@ -163,11 +165,18 @@ v0.4.0-dashboard
 v1.0.0-ai-cfo
 ```
 
-## 14. 立即下一步
+## 14. 規劃完成後的開發順序
 
-1. 完成 AI CFO 2026-01～06 資料覆核及固定資產清冊。
-2. 取得 PMS 測試登入與訂單頁面結構，在不修改資料的前提下製作擷取原型。
-3. 建立本機資料庫與訂單事件模型。
-4. 建立私人 Custom GPT、Actions API 及測試指令。
-5. 建立 LINE Official Account 測試 Channel 與 webhook。
-6. 以手機及測試群組驗證新訂單、入住、用餐、飲食禁忌與採購流程。
+目前不實作。交給 AI 開發時依下列順序執行：
+
+1. 完成財務資料覆核、帳戶期初餘額與年繳費用服務期間。
+2. 建立本機資料庫、migration、稽核及財務引擎。
+3. 以遮蔽截圖與最低權限測試帳號完成 OwlNest 唯讀探索。
+4. 建立 OwlNest Collector，先平行運行但不觸發正式通知。
+5. 建立 LINE Messaging API 測試群組及 HTTPS webhook。
+6. 建立 Actions API，再於網頁版設定私人 GPT，使用手機驗證。
+7. 建立確定性規則引擎與通知矩陣。
+8. 完成 HomeKit 設備／Shortcut 清冊，逐條啟用低風險規則。
+9. 完成一週平行運行、備份還原與停機演練後才正式上線。
+
+工作包、前置資料與交付門檻見 [AI Development Handoff](AI_Development_Handoff.md)。

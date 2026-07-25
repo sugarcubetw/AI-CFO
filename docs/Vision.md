@@ -91,6 +91,12 @@ V1 不包含：
 - `TBC-005`：PMS 網址、登入方式、二階段驗證、訂單列表與訂單詳情畫面。
 - `TBC-006`：LINE 工作群組、可接收通知的角色及敏感資料顯示範圍。
 - `TBC-007`：新訂單、取消、入住、用餐與飲食禁忌的通知時機。
+- `ASM-004`：經營者目前使用 ChatGPT Plus，手機入口採私人 GPT + Actions。
+- `ASM-005`：OwlTing OwlNest 為 PMS；本案尚未取得可用 API 文件。
+- `ASM-006`：民宿 Mac 每日開機，可作為未來本機 Agent 主機。
+- `TBC-008`：OwlNest 自動化存取許可、匯出能力及登入限制。
+- `TBC-009`：LINE Messaging API Channel、測試群組與通知矩陣。
+- `TBC-010`：HomeKit 設備、Shortcut 及高風險設備安全條件。
 
 ## 9. 相關文件
 

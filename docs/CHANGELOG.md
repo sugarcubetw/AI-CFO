@@ -6,6 +6,8 @@
 
 ### Added
 
+- 建立 AI 開發交接文件，定義系統角色、工作包、相依、秘密管理與交付門檻。
+- 新增 OwlNest 唯讀整合、ChatGPT 手機 Actions、LINE Messaging API、HomeKit Shortcuts、營運資料模型及驗收測試規格。
 - 完成 `2026財務報表.xlsx` 的結構、公式、資料品質與匯入可行性評估。
 - 新增原始資料分類映射、匯入優先順序及防重策略。
 - 完成 2026-06 Excel V2 端到端試轉，建立單一交易表、月損益、現金流、年度摘要、Dashboard、Checks 與 AI 分析資料包。
@@ -13,6 +15,13 @@
 
 ### Confirmed
 
+- 使用 ChatGPT Plus，以私人 GPT + Actions 作為手機管理介面。
+- PMS 為 OwlTing OwlNest；目前不實作，且未取得可用 API 文件。
+- 民宿 Mac 每日開機，未來作為本機 Agent 主機。
+- LINE Official Account 已建立，後續使用 Messaging API。
+- HomeKit 邏輯可依需求調整，但 AI 不直接控制裝置。
+- 年繳費用在管理損益按服務期間逐月攤提，付款日全額反映現金流。
+- 固定資產由使用者盤點後於 Phase 2 匯入。
 - 原始活頁簿包含 2026-01 至 2026-06 六張月報。
 - 現有淨值包含貸款／分期現金支出，不能直接視為管理淨利。
 - 5 月起其他支出欄位結構改變，匯入時須統一。

@@ -4,9 +4,9 @@
 
 ## 專案狀態
 
-- 規格版本：0.1.0
-- 文件基準日：2026-07-24
-- 階段：V1 規格基線
+- 規格版本：0.2.0-draft
+- 文件基準日：2026-07-26
+- 階段：財務核心與營運 Agent 開發交接規格；整合功能尚未實作
 - 使用單位：方糖民宿
 - 資料起始日：2026-01-01
 
@@ -19,6 +19,11 @@
 - 現行收入來源：Booking、官網、電話訂房、公務住宿、活動收入
 - 未來收入來源：Agoda、Airbnb
 - 成本大類：人事、房務、食材、公共營運、行銷平台、訂閱服務、貸款、其他
+- PMS：OwlTing OwlNest；規劃唯讀接收，尚未取得可用 API 文件
+- 行動入口：ChatGPT Plus 私人 GPT + Actions
+- 工作通知：LINE Official Account + Messaging API
+- 執行主機：每日開機的民宿 Mac
+- 設備整合：規則引擎選擇白名單 Shortcut，再由 HomeKit 執行
 
 ## V1 核心原則
 
@@ -39,6 +44,14 @@
 - [資料庫設計](docs/Database_Design.md)
 - [Dashboard 設計](docs/Dashboard_Design.md)
 - [AI 分析引擎](docs/AI_Analysis_Engine.md)
+- [AI 開發交接入口](docs/AI_Development_Handoff.md)
+- [營運 Agent 架構](docs/Operations_Agent_Architecture.md)
+- [營運資料模型](docs/Operations_Data_Model.md)
+- [OwlNest PMS 整合](docs/OwlNest_PMS_Integration.md)
+- [ChatGPT 手機 Actions](docs/Mobile_ChatGPT_Actions.md)
+- [LINE 通知設計](docs/LINE_Notification_Design.md)
+- [HomeKit Shortcuts 設計](docs/HomeKit_Shortcuts_Design.md)
+- [驗收測試計畫](docs/Acceptance_Test_Plan.md)
 - [開發路線圖](docs/Development_Roadmap.md)
 - [2026 原始財務活頁簿評估](docs/Source_Workbook_Assessment.md)
 - [決策紀錄](docs/Decision_Log.md)
@@ -56,6 +69,9 @@ flowchart LR
     D --> F["AI 分析資料包"]
     F --> G["AI 經營摘要與建議"]
 ```
+
+營運 Agent 的完整資料流、權限與安全界線見
+[AI Development Handoff](docs/AI_Development_Handoff.md)。
 
 ## 文件治理
 
