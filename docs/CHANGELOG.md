@@ -6,6 +6,8 @@
 
 ### Added
 
+- 新增入住接待確認流程，整合證件核驗、用餐需求與尾款確認。
+- 新增尾款 `presumed_collected`、`confirmed`、`reconciled` 狀態及月結對帳規則。
 - 建立 AI 開發交接文件，定義系統角色、工作包、相依、秘密管理與交付門檻。
 - 新增 OwlNest 唯讀整合、ChatGPT 手機 Actions、LINE Messaging API、HomeKit Shortcuts、營運資料模型及驗收測試規格。
 - 完成 `2026財務報表.xlsx` 的結構、公式、資料品質與匯入可行性評估。
@@ -15,6 +17,8 @@
 
 ### Confirmed
 
+- OwlNest 現場尾款不要求回寫；入住日已到且訂單未取消時先推定已收，接待確認後才正式入帳。
+- 證件預設只保存核驗結果，不保存身分證號碼或照片。
 - 使用 ChatGPT Plus，以私人 GPT + Actions 作為手機管理介面。
 - PMS 為 OwlTing OwlNest；目前不實作，且未取得可用 API 文件。
 - 民宿 Mac 每日開機，未來作為本機 Agent 主機。

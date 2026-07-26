@@ -39,6 +39,9 @@ ChatGPT 負責：
 | `confirm_purchase` | 財務管理者 | 是 | 以草稿 ID 和單次 token 正式寫入 |
 | `create_meal_change_draft` | 管理者 | 否 | 用餐異動草稿 |
 | `confirm_meal_change` | 管理者 | 是 | 寫入營運需求，不回寫 PMS |
+| `get_reception_checklist` | 接待人員 | 否 | 顯示證件、用餐及尾款確認狀態 |
+| `complete_reception_draft` | 接待人員 | 否 | 預填訂單餘額並建立接待草稿 |
+| `confirm_reception` | 接待人員 | 是 | 確認核驗、用餐及尾款，不回寫 PMS |
 | `create_notification_draft` | 管理者 | 否 | LINE 訊息預覽與收件群組 |
 | `send_notification` | 管理者 | 是 | 發送已核准草稿 |
 | `request_shortcut_action` | 管理者 | 視風險 | 交由規則引擎判斷，不直接操作 HomeKit |
@@ -63,6 +66,7 @@ ChatGPT 負責：
 - 每個回應包含 `data_as_of`、`completeness` 及 `source`.
 - 不回傳電話、Email、證件、付款卡號、PMS Cookie 或密碼。
 - 飲食禁忌只回傳執行工作必要資訊，避免附完整住客身分。
+- 證件確認只傳送是否完成及證件類型，不傳身分證號碼或照片。
 - 金鑰存本機秘密管理，不提交 Git。
 - Actions API 使用 TLS、驗證、速率限制、重放防護及完整稽核。
 
@@ -89,6 +93,7 @@ ChatGPT Actions 與 LINE webhook 需要可由外部到達的 HTTPS 端點。開�
 - 「明天早餐有哪些禁忌？」不洩漏不必要個資。
 - 「全聯買食材 2350 現金」只建立草稿；確認後僅寫入一次。
 - 「通知群組 203 改 8:30」先顯示群組及訊息預覽。
+- 「203 證件已看、尾款 2400 現金、早餐 8:30」先建立接待草稿，確認後分別寫入稽核、用餐及付款事件。
 - 同一確認呼叫重送不重複寫入。
 - 本機離線、token 過期及權限不足均有明確安全回覆。
 
@@ -98,4 +103,3 @@ ChatGPT Actions 與 LINE webhook 需要可由外部到達的 HTTPS 端點。開�
 - `TBC-GPT-002`：唯一管理者或多位管理者。
 - `TBC-GPT-003`：哪些財務數字可從手機查詢。
 - `TBC-GPT-004`：個人 ChatGPT 資料控制與資料保留設定。
-

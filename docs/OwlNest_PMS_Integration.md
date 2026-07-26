@@ -56,6 +56,8 @@
 
 訂金與現場尾款必須以相同 `reservation_external_id` 關聯。付款日期用於現金流；住宿收入認列日期依 [Business Rules](Business_Rules.md)。
 
+若 OwlNest 未登錄現場尾款，入住日已到且訂單未取消時，本機營運層可建立 `balance.presumed_collected`，但不得把它當成 PMS 原始事件或正式現金交易。接待確認後另建 `payment.confirmed`；本系統不回寫 OwlNest。
+
 ## 5. 同步演算法
 
 1. 取得同步鎖，避免兩個程序同時執行。
