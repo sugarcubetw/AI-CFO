@@ -60,7 +60,7 @@ erDiagram
 
 `meal_slot` 只允許 `08:00`、`08:30`、`09:00`、`09:30`、`10:00`、`NONE`。
 
-`selection_reason` 只允許 `default`、`multi_day`、`returning_guest`、`dietary_exception`、`manual`。餐點分配以住宿及早餐日期為粒度，同一供餐日期可同時存在多種餐點。二訪歷史須透過受控的住客識別鍵查詢，不得把姓名或電話明文送入 LLM。
+`selection_reason` 只允許 `default`、`multi_day`、`returning_guest_manual`、`dietary_exception`、`manual`。餐點分配以住宿及早餐日期為粒度，同一供餐日期可同時存在多種餐點。二訪由接待人員在電話或 LINE 訂房／接待流程手動標記，系統不建立跨訂單的自動住客辨識。
 
 ### meals
 
@@ -69,6 +69,8 @@ erDiagram
 ### meal_prep_items
 
 `id`, `meal_id`, `recipe_version`, `item_name`, `quantity_per_serving`, `unit`, `waste_rate`, `package_quantity`, `lead_days`, `notes`
+
+餐點與備料項目均由管理介面維護。新增或修改配方須建立版本；停用採軟刪除，歷史備料表固定引用當時版本。
 
 ### prep_sheets
 
