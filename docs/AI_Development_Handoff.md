@@ -67,9 +67,10 @@ flowchart LR
 7. [Mobile ChatGPT Actions](Mobile_ChatGPT_Actions.md)
 8. [LINE Notification Design](LINE_Notification_Design.md)
 9. [HomeKit Shortcuts Design](HomeKit_Shortcuts_Design.md)
-10. [Acceptance Test Plan](Acceptance_Test_Plan.md)
-11. [Decision Log](Decision_Log.md)
-12. [Development Roadmap](Development_Roadmap.md)
+10. [Meal and Prep Workflow](Meal_and_Prep_Workflow.md)
+11. [Acceptance Test Plan](Acceptance_Test_Plan.md)
+12. [Decision Log](Decision_Log.md)
+13. [Development Roadmap](Development_Roadmap.md)
 
 ## 6. 開發工作包
 
@@ -118,4 +119,3 @@ flowchart LR
 - 不含秘密的 `.env.example`。
 - 部署、停止、復原與回退說明。
 - 實際驗證證據，不以「程式可編譯」取代端到端驗收。
-

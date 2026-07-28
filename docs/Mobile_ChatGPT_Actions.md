@@ -32,6 +32,9 @@ ChatGPT 負責：
 |---|---|---|---|
 | `get_today_arrivals` | 管理者 | 否 | 今日入住、資料時間、必要備註 |
 | `get_upcoming_meals` | 管理者 | 否 | 用餐時段、人數、去識別化禁忌 |
+| `get_next_prep_sheet` | 管理者 | 否 | 查詢次日餐點、備料與缺漏 |
+| `create_meal_draft` | 接待人員 | 否 | 快速新增餐點草稿 |
+| `confirm_meal` | 管理者 | 是 | 啟用新餐點並保留備料映射狀態 |
 | `get_operational_status` | 管理者 | 否 | PMS 同步、通知及 Agent 健康 |
 | `get_financial_summary` | 財務管理者 | 否 | 期間收入、成本、現金流及來源 |
 | `get_cost_details` | 財務管理者 | 否 | 大類、細項、供應商、交易下鑽 |

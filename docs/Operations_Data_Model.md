@@ -54,9 +54,29 @@ erDiagram
 
 ### meal_requirements
 
-`id`, `reservation_id`, `stay_id`, `meal_date`, `meal_slot`, `guest_count`, `dietary_tags`, `allergy_text_redacted`, `source`, `version`, `confirmed_at`, `updated_at`
+`id`, `reservation_id`, `stay_id`, `meal_date`, `meal_slot`, `guest_count`, `meal_id`, `dietary_tags`, `allergy_text_redacted`, `source`, `version`, `confirmed_at`, `updated_at`
 
 過敏資訊屬敏感營運資料，須限制權限並設定保存期限。
+
+`meal_slot` 只允許 `08:00`、`08:30`、`09:00`、`09:30`、`10:00`、`NONE`。
+
+### meals
+
+`id`, `meal_code`, `meal_name`, `is_default`, `is_active`, `rotation_order`, `dietary_tags`, `recipe_version`, `prep_mapping_status`, `effective_from`, `effective_to`
+
+### meal_prep_items
+
+`id`, `meal_id`, `recipe_version`, `item_name`, `quantity_per_serving`, `unit`, `waste_rate`, `package_quantity`, `lead_days`, `notes`
+
+### prep_sheets
+
+`id`, `service_date`, `version`, `status`, `generated_at`, `trigger`, `total_guests`, `unconfirmed_reservations`, `missing_mapping_count`, `supersedes_id`
+
+`status`：`draft`、`final_at_18`、`revised`。
+
+### prep_sheet_lines
+
+`id`, `prep_sheet_id`, `meal_id`, `meal_slot`, `meal_servings`, `prep_item_id`, `required_quantity`, `unit`, `exception_summary`
 
 ### reception_checklists
 

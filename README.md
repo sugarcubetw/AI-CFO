@@ -51,6 +51,7 @@
 - [ChatGPT 手機 Actions](docs/Mobile_ChatGPT_Actions.md)
 - [LINE 通知設計](docs/LINE_Notification_Design.md)
 - [HomeKit Shortcuts 設計](docs/HomeKit_Shortcuts_Design.md)
+- [餐點選擇與備料流程](docs/Meal_and_Prep_Workflow.md)
 - [驗收測試計畫](docs/Acceptance_Test_Plan.md)
 - [開發路線圖](docs/Development_Roadmap.md)
 - [2026 原始財務活頁簿評估](docs/Source_Workbook_Assessment.md)
