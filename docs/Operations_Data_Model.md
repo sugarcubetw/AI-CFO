@@ -54,15 +54,17 @@ erDiagram
 
 ### meal_requirements
 
-`id`, `reservation_id`, `stay_id`, `meal_date`, `meal_slot`, `guest_count`, `meal_id`, `dietary_tags`, `allergy_text_redacted`, `source`, `version`, `confirmed_at`, `updated_at`
+`id`, `reservation_id`, `stay_id`, `meal_date`, `meal_slot`, `guest_count`, `meal_id`, `selection_reason`, `selected_by`, `dietary_tags`, `allergy_text_redacted`, `source`, `version`, `confirmed_at`, `updated_at`
 
 過敏資訊屬敏感營運資料，須限制權限並設定保存期限。
 
 `meal_slot` 只允許 `08:00`、`08:30`、`09:00`、`09:30`、`10:00`、`NONE`。
 
+`selection_reason` 只允許 `default`、`multi_day`、`returning_guest`、`dietary_exception`、`manual`。餐點分配以住宿及早餐日期為粒度，同一供餐日期可同時存在多種餐點。二訪歷史須透過受控的住客識別鍵查詢，不得把姓名或電話明文送入 LLM。
+
 ### meals
 
-`id`, `meal_code`, `meal_name`, `is_default`, `is_active`, `rotation_order`, `dietary_tags`, `recipe_version`, `prep_mapping_status`, `effective_from`, `effective_to`
+`id`, `meal_code`, `meal_name`, `is_default`, `is_active`, `display_order`, `dietary_tags`, `recipe_version`, `prep_mapping_status`, `effective_from`, `effective_to`
 
 ### meal_prep_items
 
