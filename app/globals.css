@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; }
+html { background:#eef2ed; }
+body { margin:0; color:#172019; background:#eef2ed; font-family:Arial,"PingFang TC","Noto Sans TC",sans-serif; }
+button,input,select,textarea { font:inherit; }
+button { cursor:pointer; }
+.app-shell { width:100%; max-width:430px; min-height:100svh; margin:0 auto; background:#f5f7f4; box-shadow:0 0 40px rgba(35,59,43,.13); }
+.app-header { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:22px 18px 15px; color:#fff; background:#1f5b3a; }
+.app-header h1 { margin:0; font-size:22px; font-weight:600; }
+.app-header p { margin:5px 0 0; font-size:13px; opacity:.82; }
+.arrival-button { border:0; border-radius:999px; padding:9px 12px; color:#17452e; background:#fff; font-weight:600; }
+.tabs { position:sticky; top:0; z-index:5; display:grid; grid-template-columns:repeat(3,1fr); background:#fff; border-bottom:1px solid #d8ded8; }
+.tabs button { border:0; border-bottom:3px solid transparent; padding:13px 3px 11px; color:#6a756d; background:transparent; font-weight:600; }
+.tabs button.active { color:#1f5b3a; border-bottom-color:#1f5b3a; }
+.screen { padding:15px 14px 30px; }
+.section-heading,.spread { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.section-heading { align-items:center; margin:1px 2px 11px; }
+.section-heading h2 { margin:0; font-size:17px; }
+.section-heading span,.spread p,.privacy,.field-note,.booking-summary small { color:#6b766e; }
+.section-heading span,.spread p,.privacy,.field-note { font-size:12px; }
+.order,.camera-event { margin-bottom:11px; overflow:hidden; border:1px solid #d6ddd6; border-radius:17px; background:#fff; }
+.order { padding:14px; }
+.order.selected { border:2px solid #2f8052; background:#f1faf4; }
+.spread strong { font-weight:600; }
+.spread p { margin:4px 0 0; }
+.spread em { flex:none; border-radius:999px; padding:5px 8px; color:#7e5700; background:#fff0c9; font-size:12px; font-style:normal; }
+.facts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:13px; font-size:13px; }
+.facts small { display:block; margin-bottom:3px; color:#6b766e; }
+.primary,.secondary { width:100%; margin-top:12px; padding:13px; border-radius:12px; font-weight:600; }
+.primary { border:0; color:#fff; background:#1f5b3a; }
+.secondary { border:1px solid #b9c3bb; color:#243129; background:transparent; }
+.privacy,.result { margin:15px 0 0; text-align:center; }
+.camera { position:relative; height:178px; overflow:hidden; background:linear-gradient(155deg,#bac6b9,#718477); }
+.camera:before { position:absolute; right:26px; bottom:0; left:26px; height:78px; background:#59655b; clip-path:polygon(18% 0,82% 0,100% 100%,0 100%); content:""; }
+.camera-name { position:absolute; top:10px; left:10px; z-index:2; border-radius:999px; padding:5px 8px; color:#fff; background:rgba(0,0,0,.55); font-size:12px; }
+.camera-time { position:absolute; right:10px; bottom:9px; color:#fff; font-size:12px; text-shadow:0 1px 3px #000; }
+.car { position:absolute; bottom:34px; left:83px; width:132px; height:46px; border:2px solid #35463b; border-radius:18px 28px 9px 9px; background:#e3e8e4; }
+.car:before { position:absolute; top:-23px; left:27px; width:72px; height:31px; border-radius:30px 35px 0 0; background:#63756a; content:""; }
+.car i { position:absolute; bottom:-10px; width:23px; height:23px; border:4px solid #4d5650; border-radius:50%; background:#141a16; }
+.car i:first-child { left:18px; }.car i:last-child { right:18px; }
+.event-copy { padding:14px; }
+label { display:block; margin:13px 0 6px; color:#526057; font-size:13px; }
+input,select,textarea { width:100%; padding:12px; border:1px solid #c6cfc7; border-radius:11px; color:#172019; background:#fff; }
+input:focus,select:focus,textarea:focus { outline:3px solid rgba(47,128,82,.18); border-color:#2f8052; }
+input[readonly] { color:#526057; background:#edf1ed; }
+.two-columns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.check { display:flex; align-items:center; gap:8px; margin:10px 0 2px; }
+.check input { width:auto; }
+.booking-summary { padding:13px; border-radius:14px; background:#e7f3ea; font-size:13px; line-height:1.55; }
+.booking-summary small { display:block; margin-top:5px; font-size:11px; }
+.field-note { display:block; margin-top:4px; }
+.result { color:#718078; font-size:12px; }.result.done { color:#1f5b3a; font-weight:600; }
+@media (max-width:360px) { .screen { padding:12px 11px 26px; }.camera { height:155px; }.app-header { padding-inline:15px; } }
