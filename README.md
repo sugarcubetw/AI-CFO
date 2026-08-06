@@ -54,6 +54,7 @@
 - [餐點選擇與備料流程](docs/Meal_and_Prep_Workflow.md)
 - [驗收測試計畫](docs/Acceptance_Test_Plan.md)
 - [開發路線圖](docs/Development_Roadmap.md)
+- [營運 MVP 專案進度表](docs/Operations_MVP_Progress.md)
 - [2026 原始財務活頁簿評估](docs/Source_Workbook_Assessment.md)
 - [決策紀錄](docs/Decision_Log.md)
 - [變更紀錄](docs/CHANGELOG.md)
