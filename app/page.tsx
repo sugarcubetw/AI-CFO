@@ -2,13 +2,36 @@
 
 import { useState } from "react";
 
-type View = "today" | "visitor" | "checkin";
+type View = "today" | "orders" | "visitor" | "checkin";
+
+const roomTypeMap: Record<string, string> = {
+  "湖水綠意雙人房": "202",
+  "湖光晴空露台雙人房": "301",
+  "晨光綠語雙人房": "303",
+  "光嶼雅築四人房": "204",
+  "湖畔拾影雙人房": "201",
+  "未開放1": "203",
+  "未開放2": "302",
+};
+
+const sampleOrders = [
+  { id: "OBE…080601", guest: "廖先生", source: "Booking", roomType: "湖水綠意雙人房", arrival: "2026-08-08", departure: "2026-08-09", guests: 2, status: "待入住" },
+  { id: "OBE…080501", guest: "王小姐", source: "Booking", roomType: "光嶼雅築四人房", arrival: "2026-08-14", departure: "2026-08-15", guests: 4, status: "待入住" },
+  { id: "OBE…080402", guest: "陳小姐", source: "Booking", roomType: "光嶼雅築四人房", arrival: "2026-08-29", departure: "2026-08-30", guests: 3, status: "待入住" },
+  { id: "OBE…080603", guest: "何先生", source: "Booking", roomType: "湖畔拾影雙人房", arrival: "2026-09-06", departure: "2026-09-07", guests: 2, status: "待入住" },
+  { id: "OBE…080602", guest: "林小姐", source: "官網", roomType: "晨光綠語雙人房", arrival: "2026-09-14", departure: "2026-09-15", guests: 2, status: "待結清" },
+  { id: "OBE…080502", guest: "李小姐", source: "Booking", roomType: "湖水綠意雙人房", arrival: "2026-09-19", departure: "2026-09-20", guests: 3, status: "已取消" },
+];
 
 export default function Home() {
   const [view, setView] = useState<View>("today");
   const [breakfastTime, setBreakfastTime] = useState("08:30");
   const [breakfastCount, setBreakfastCount] = useState(2);
   const [done, setDone] = useState(false);
+  const [fromDate, setFromDate] = useState("2026-08-03");
+  const [toDate, setToDate] = useState("2026-08-09");
+
+  const filteredOrders = sampleOrders.filter((order) => order.arrival <= toDate && order.departure >= fromDate);
 
   function switchView(next: View) {
     setView(next);
@@ -26,7 +49,7 @@ export default function Home() {
       </header>
 
       <nav className="tabs" aria-label="接待功能">
-        {[["today", "今日接待"], ["visitor", "來訪事件"], ["checkin", "辦理入住"]].map(([key, label]) => (
+        {[["today", "今日"], ["orders", "訂單"], ["visitor", "來訪"], ["checkin", "入住"]].map(([key, label]) => (
           <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => switchView(key as View)}>{label}</button>
         ))}
       </nav>
@@ -43,6 +66,23 @@ export default function Home() {
           <div className="facts"><div><small>現場付款</small>NT$ 4,200</div><div><small>早餐</small>尚未確認</div></div>
         </article>
         <p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p>
+      </section>}
+
+      {view === "orders" && <section className="screen">
+        <div className="section-heading"><h2>所有訂單</h2><span>{filteredOrders.length} 筆</span></div>
+        <div className="date-filter">
+          <div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></div></div>
+          <button type="button" className="week-button" onClick={() => { setFromDate("2026-08-03"); setToDate("2026-08-09"); }}>回到本週</button>
+        </div>
+        <p className="range-label">查詢期間：{fromDate} 至 {toDate}</p>
+        {filteredOrders.length === 0 && <div className="empty">此期間沒有訂單，可調整查詢日期。</div>}
+        {filteredOrders.map((order) => <article className={`order order-result ${order.status === "已取消" ? "cancelled" : ""}`} key={order.id}>
+          <div className="spread"><div><strong>{order.arrival.slice(5).replace("-", "/")}・{order.guest}</strong><p>{order.source}・{order.guests} 位・{order.id}</p></div><em>{order.status}</em></div>
+          <div className="room-line"><span>房型</span>{order.roomType}</div>
+          <div className="room-line"><span>對應房號</span><b>{roomTypeMap[order.roomType]}</b></div>
+          <div className="room-line"><span>住宿日期</span>{order.arrival} → {order.departure}</div>
+        </article>)}
+        <p className="privacy">預設顯示本週；可自行指定任意起訖日期</p>
       </section>}
 
       {view === "visitor" && <section className="screen">
