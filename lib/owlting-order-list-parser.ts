@@ -6,6 +6,8 @@ export type OwlNestOrderListRow = {
   guestName: string;
   roomTypeName: string;
   roomNumber: string | null;
+  roomTypeNames: string[];
+  roomNumbers: string[];
   totalAmount: number;
   receivedAmount: number;
   balanceAmount: number;
@@ -85,8 +87,13 @@ function source(value: string) {
 }
 
 function room(value: string) {
-  const known = roomTypes.find(([name]) => value.includes(name));
-  return { roomTypeName: known?.[0] ?? value.trim(), roomNumber: known?.[1] ?? null };
+  const known = roomTypes.filter(([name]) => value.includes(name)).sort(([left], [right]) => value.indexOf(left) - value.indexOf(right));
+  return {
+    roomTypeName: known[0]?.[0] ?? value.trim(),
+    roomNumber: known[0]?.[1] ?? null,
+    roomTypeNames: known.map(([name]) => name),
+    roomNumbers: known.map(([, number]) => number),
+  };
 }
 
 function otaId(value: string, sourceValue: string) {
@@ -125,6 +132,7 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
     const roomValue = text(raw, ["客房類別", "房型", "客房"]);
     const roomInfo = room(roomValue);
     if (!roomTypes.some(([name]) => roomValue.includes(name))) warnings.push(`訂單 ${orderId} 的房型未對應主檔`);
+    if (roomInfo.roomTypeNames.length > 1) warnings.push(`訂單 ${orderId} 含多間房；OwlNest 訂單列表未提供入住人數，須人工核對`);
     if (!sourceValue) warnings.push(`訂單 ${orderId} 缺少訂單來源`);
     if (!text(raw, ["付款狀態", "付款狀態說明"])) warnings.push(`訂單 ${orderId} 缺少付款狀態`);
     rows.push({

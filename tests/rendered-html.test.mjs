@@ -67,3 +67,11 @@ test("payment correction preserves an audit trail and requires exact-state confi
   assert.match(route, /status: "voided"/);
   assert.match(route, /payment\.duplicate_voided/);
 });
+
+test("reservation guest correction requires exact prior counts and records an audit event", async () => {
+  const route = await read("app/api/admin/reservation-correction/route.ts");
+  assert.match(route, /CORRECT_RESERVATION_GUESTS/);
+  assert.match(route, /expectedAdults/);
+  assert.match(route, /reservation\.guest_count_corrected/);
+  assert.match(route, /breakfastEstimate: adults \+ children/);
+});

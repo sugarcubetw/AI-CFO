@@ -132,3 +132,11 @@ test("parses OwlNest export with split surname and given-name columns", () => {
   assert.equal(result.rows[0].roomNumber, "201");
   assert.equal(result.rows[0].balanceAmount, 4000);
 });
+
+test("preserves every room in a multi-room OwlNest order and flags guest count review", () => {
+  const csv = `訂單編號,訂購時間,入住日期,退房日期,姓,名,客房類別,總金額,已收,未收,訂單來源,付款狀態\nOBE00250718626051401,2026-05-14 11:42:01,2026-08-08,2026-08-09,潘,宛妤,"湖畔拾影雙人房 * 1, 光嶼雅築四人房 * 1",11000,5500,5500,官網訂單,待結清`;
+  const result = parseOwlNestOrderList(csv);
+  assert.deepEqual(result.rows[0].roomNumbers, ["201", "204"]);
+  assert.deepEqual(result.rows[0].roomTypeNames, ["湖畔拾影雙人房", "光嶼雅築四人房"]);
+  assert.equal(result.warnings.some((warning) => warning.includes("多間房") && warning.includes("人工核對")), true);
+});

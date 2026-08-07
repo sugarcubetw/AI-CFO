@@ -76,7 +76,11 @@ export async function POST(request: Request) {
         roomTypeId: roomType?.id ?? null, roomNumber: roomType?.defaultRoomNumber ?? row.roomNumber, adults: 1,
         totalAmount: row.totalAmount, receivedAmount: row.receivedAmount, balanceAmount: row.balanceAmount,
         paymentMethod: row.paymentMethod, paymentStatus: row.paymentStatus ?? (row.receivedAmount > 0 ? "deposit_paid" : "pending"),
-        importState: "pending_review", specialRequests: "OwlNest 訂單列表核對匯入", updatedAt: new Date().toISOString(),
+        importState: "pending_review",
+        specialRequests: row.roomNumbers.length > 1
+          ? `多房訂單：${row.roomNumbers.join("、")}；OwlNest 訂單列表未提供入住人數，請人工核對`
+          : "OwlNest 訂單列表核對匯入；訂單列表未提供入住人數，請人工核對",
+        updatedAt: new Date().toISOString(),
       });
       insertedCount += 1;
       itemValues.push({ runId, orderId: row.orderId, action: "inserted", differenceJson: null, sourceRowJson: JSON.stringify(row.raw) });
