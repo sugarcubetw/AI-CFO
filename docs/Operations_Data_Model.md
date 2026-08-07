@@ -13,6 +13,7 @@ erDiagram
     RESERVATIONS ||--o{ PAYMENTS : receives
     RESERVATIONS ||--o{ MEAL_REQUIREMENTS : requests
     STAYS }o--|| ROOMS : assigned_to
+    ROOM_TYPES ||--o{ ROOMS : maps_to
     PURCHASES ||--o{ TRANSACTIONS : posts
     NOTIFICATION_JOBS }o--o| RESERVATION_EVENTS : triggered_by
     AUTOMATION_RULES ||--o{ AUTOMATION_EXECUTIONS : evaluates
@@ -24,9 +25,17 @@ erDiagram
 
 ### reservations
 
-`id`, `source_system`, `external_id`, `source_channel`, `status`, `arrival_date`, `departure_date`, `room_type`, `guest_count_adult`, `guest_count_child`, `source_version`, `last_source_update_at`, `last_synced_at`, `created_at`, `updated_at`
+`id`, `source_system`, `external_id`, `ota_external_id`, `source_channel`, `status`, `arrival_date`, `departure_date`, `room_type_id`, `guest_count_adult`, `guest_count_child`, `guest_count_infant`, `source_version`, `last_source_update_at`, `last_synced_at`, `created_at`, `updated_at`
 
 唯一鍵：`source_system + external_id`。
+
+### room_types
+
+`id`, `source_name`, `display_name`, `default_room_id`, `is_bookable`, `is_active`, `created_at`, `updated_at`
+
+OwlTing／Booking 郵件通常只提供房型名稱。系統先以 `source_name` 對照預設房號；接待或管理者仍可依實際調房修改 `stays.room_id`，且須保留修改紀錄。
+
+V1 預設對照：湖水綠意雙人房→202、湖光晴空露台雙人房→301、晨光綠語雙人房→303、光嶼雅築四人房→204、湖畔拾影雙人房→201、未開放1→203、未開放2→302。後兩者預設 `is_bookable=false`。
 
 ### reservation_events
 
