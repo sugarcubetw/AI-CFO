@@ -25,6 +25,7 @@ try {
 
 const OWLNEST_URL = process.env.OWL_NEST_URL ?? "https://www.owlting.com/booking/admin/?p=statistics&l=zh_TW";
 const OPS_SITE_URL = process.env.OPS_SITE_URL ?? "https://fangtang-mobile-reception.dk8515.chatgpt.site";
+const OPS_SITE_BYPASS_TOKEN = process.env.OPS_SITE_BYPASS_TOKEN ?? "";
 const PROFILE_DIR = resolve(process.env.OWL_NEST_PROFILE_DIR ?? join(homedir(), ".fangtang", "owlnest-browser"));
 const STATE_DIR = resolve(process.env.OWLNEST_AGENT_STATE_DIR ?? join(homedir(), ".fangtang", "owlnest-agent"));
 const PERIOD_DAYS = Math.max(1, Number(process.env.OWLNEST_PERIOD_DAYS ?? 90));
@@ -265,9 +266,13 @@ async function downloadCsv(page) {
 }
 
 async function postToOperations(page, content, range) {
-  const result = await page.evaluate(async ({ content: csv, range: periodRange }) => {
+  const result = await page.evaluate(async ({ content: csv, range: periodRange, bypassToken }) => {
     const response = await fetch("/api/reconcile/owlting", {
-      method: "POST", headers: { "content-type": "application/json" },
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(bypassToken ? { "OAI-Sites-Authorization": `Bearer ${bypassToken}` } : {}),
+      },
       body: JSON.stringify({ content: csv, periodFrom: periodRange.from, periodTo: periodRange.to, sourceExportedAt: new Date().toISOString(), notes: "本機 OwlNest 每日自動核對" }),
     });
     const raw = await response.text();
@@ -275,7 +280,7 @@ async function postToOperations(page, content, range) {
     try { body = JSON.parse(raw); }
     catch { body = { error: `核對 API 未回傳 JSON（HTTP ${response.status}）`, responsePreview: raw.slice(0, 240) }; }
     return { status: response.status, body };
-  }, { content, range });
+  }, { content, range, bypassToken: OPS_SITE_BYPASS_TOKEN });
   if (result.status >= 400 || result.body?.error) {
     const preview = result.body?.responsePreview ? `：${result.body.responsePreview}` : "";
     throw new Error(`${result.body?.error ?? `核對 API 回傳 ${result.status}`}${preview}`);
@@ -296,6 +301,7 @@ async function savePendingReconcile(content, range, error) {
 }
 
 async function waitForOperationsLogin(page) {
+  if (OPS_SITE_BYPASS_TOKEN) return page;
   const deadline = Date.now() + 180_000;
   const opsOrigin = new URL(OPS_SITE_URL).origin;
   let prompted = false;
