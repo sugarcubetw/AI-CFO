@@ -1,117 +1,122 @@
 "use client";
+/* eslint-disable jsx-a11y/label-has-associated-control -- compact mobile forms pair labels and controls by layout */
 
-import { useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-type View = "today" | "orders" | "visitor" | "checkin";
-
-const roomTypeMap: Record<string, string> = {
-  "湖水綠意雙人房": "202",
-  "湖光晴空露台雙人房": "301",
-  "晨光綠語雙人房": "303",
-  "光嶼雅築四人房": "204",
-  "湖畔拾影雙人房": "201",
-  "未開放1": "203",
-  "未開放2": "302",
+type View = "today" | "orders" | "visitor" | "checkin" | "prep";
+type Order = {
+  id: string; guestName: string; sourceChannel: string; status: string; importState: string;
+  arrivalDate: string; departureDate: string; roomTypeId: string | null; roomTypeName: string | null;
+  roomNumber: string | null; adults: number; children: number; totalAmount: number; receivedAmount: number;
+  balanceAmount: number; paymentStatus: string; specialRequests: string | null;
+};
+type BaseData = {
+  roomTypes: { id: string; displayName: string; defaultRoomNumber: string; isBookable: boolean }[];
+  meals: { id: string; name: string; isDefault: boolean }[];
+  breakfastTimes: string[]; sourceChannels: string[];
+};
+type PrepData = {
+  requirements: { id: number; mealDate: string; mealTime: string; guestCount: number; mealName: string | null; roomNumber: string | null }[];
+  shoppingItems: { itemName: string; unit: string; quantity: number }[]; missingMappings: string[];
 };
 
-const sampleOrders = [
-  { id: "OBE…080601", guest: "廖先生", source: "Booking", roomType: "湖水綠意雙人房", arrival: "2026-08-08", departure: "2026-08-09", guests: 2, status: "待入住" },
-  { id: "OBE…080501", guest: "王小姐", source: "Booking", roomType: "光嶼雅築四人房", arrival: "2026-08-14", departure: "2026-08-15", guests: 4, status: "待入住" },
-  { id: "OBE…080402", guest: "陳小姐", source: "Booking", roomType: "光嶼雅築四人房", arrival: "2026-08-29", departure: "2026-08-30", guests: 3, status: "待入住" },
-  { id: "OBE…080603", guest: "何先生", source: "Booking", roomType: "湖畔拾影雙人房", arrival: "2026-09-06", departure: "2026-09-07", guests: 2, status: "待入住" },
-  { id: "OBE…080602", guest: "林小姐", source: "官網", roomType: "晨光綠語雙人房", arrival: "2026-09-14", departure: "2026-09-15", guests: 2, status: "待結清" },
-  { id: "OBE…080502", guest: "李小姐", source: "Booking", roomType: "湖水綠意雙人房", arrival: "2026-09-19", departure: "2026-09-20", guests: 3, status: "已取消" },
-];
+const today = new Date().toISOString().slice(0, 10);
+function weekRange() {
+  const date = new Date(`${today}T00:00:00`);
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  const from = date.toISOString().slice(0, 10);
+  date.setDate(date.getDate() + 6);
+  return [from, date.toISOString().slice(0, 10)] as const;
+}
+const initialWeek = weekRange();
+const money = (value: number) => `NT$ ${new Intl.NumberFormat("zh-TW").format(value)}`;
+const statusLabel: Record<string, string> = { pending: "待入住", checked_in: "已入住", cancelled: "已取消" };
 
 export default function Home() {
   const [view, setView] = useState<View>("today");
-  const [breakfastTime, setBreakfastTime] = useState("08:30");
-  const [breakfastCount, setBreakfastCount] = useState(2);
-  const [done, setDone] = useState(false);
-  const [fromDate, setFromDate] = useState("2026-08-03");
-  const [toDate, setToDate] = useState("2026-08-09");
+  const [base, setBase] = useState<BaseData | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [fromDate, setFromDate] = useState(initialWeek[0]);
+  const [toDate, setToDate] = useState(initialWeek[1]);
+  const [selectedId, setSelectedId] = useState("");
+  const [message, setMessage] = useState("正在初始化基礎資料…");
+  const [prep, setPrep] = useState<PrepData | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
 
-  const filteredOrders = sampleOrders.filter((order) => order.arrival <= toDate && order.departure >= fromDate);
+  const loadOrders = useCallback(async (from = fromDate, to = toDate) => {
+    const response = await fetch(`/api/orders?from=${from}&to=${to}`);
+    if (!response.ok) throw new Error("讀取訂單失敗");
+    const data = await response.json() as Order[];
+    setOrders(data);
+    if (!selectedId && data[0]) setSelectedId(data[0].id);
+  }, [fromDate, toDate, selectedId]);
 
-  function switchView(next: View) {
-    setView(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  useEffect(() => {
+    (async () => {
+      try {
+        await fetch("/api/bootstrap", { method: "POST" });
+        const response = await fetch("/api/base-data");
+        setBase(await response.json() as BaseData);
+        await loadOrders();
+        setMessage("");
+      } catch (error) { setMessage(error instanceof Error ? error.message : "系統初始化失敗"); }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selected = useMemo(() => orders.find((order) => order.id === selectedId) ?? orders[0], [orders, selectedId]);
+  const todayOrders = orders.filter((order) => order.arrivalDate === today && order.status !== "cancelled");
+
+  async function submitManual(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const roomType = base?.roomTypes.find((item) => item.id === form.get("roomTypeId"));
+    const body = Object.fromEntries(form.entries());
+    const response = await fetch("/api/orders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, roomNumber: roomType?.defaultRoomNumber, adults: Number(body.adults), totalAmount: Number(body.totalAmount), receivedAmount: Number(body.receivedAmount) }) });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) return setMessage(result.error ?? "新增失敗");
+    setManualOpen(false); setMessage("已新增手動訂單"); await loadOrders();
   }
 
-  return (
-    <main className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>接待工作台</h1>
-          <p>8 月 6 日・接待人員 小陳</p>
-        </div>
-        <button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪 1</button>
-      </header>
+  async function submitCheckin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const form = new FormData(event.currentTarget);
+    const body = Object.fromEntries(form.entries());
+    const response = await fetch("/api/checkin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, reservationId: selected.id, actualGuests: Number(body.actualGuests), breakfastCount: Number(body.breakfastCount), balancePaid: Number(body.balancePaid), identityVerified: form.get("identityVerified") === "on" }) });
+    const result = await response.json() as { error?: string };
+    setMessage(response.ok ? "✓ 已完成入住，收款與早餐需求已記錄" : result.error ?? "入住失敗");
+    if (response.ok) await loadOrders();
+  }
 
-      <nav className="tabs" aria-label="接待功能">
-        {[["today", "今日"], ["orders", "訂單"], ["visitor", "來訪"], ["checkin", "入住"]].map(([key, label]) => (
-          <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => switchView(key as View)}>{label}</button>
-        ))}
-      </nav>
+  async function loadPrep() {
+    const response = await fetch(`/api/prep?from=${fromDate}&to=${toDate}`);
+    setPrep(await response.json() as PrepData); setView("prep");
+  }
 
-      {view === "today" && <section className="screen">
-        <div className="section-heading"><h2>今日入住</h2><span>2 筆・1 筆已抵達</span></div>
-        <article className="order selected">
-          <div className="spread"><div><strong>王小姐・301</strong><p>官網・2 位・住宿 2 晚</p></div><em>已抵達</em></div>
-          <div className="facts"><div><small>尾款</small>NT$ 6,800・待確認</div><div><small>早餐</small>08:30・2 位</div></div>
-          <button type="button" className="primary" onClick={() => switchView("checkin")}>開始接待</button>
-        </article>
-        <article className="order">
-          <div className="spread"><div><strong>林先生・203</strong><p>Booking・2 位・住宿 1 晚</p></div><em>預計 17:30</em></div>
-          <div className="facts"><div><small>現場付款</small>NT$ 4,200</div><div><small>早餐</small>尚未確認</div></div>
-        </article>
-        <p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p>
-      </section>}
+  function switchView(next: View) { setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
-      {view === "orders" && <section className="screen">
-        <div className="section-heading"><h2>所有訂單</h2><span>{filteredOrders.length} 筆</span></div>
-        <div className="date-filter">
-          <div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></div></div>
-          <button type="button" className="week-button" onClick={() => { setFromDate("2026-08-03"); setToDate("2026-08-09"); }}>回到本週</button>
-        </div>
-        <p className="range-label">查詢期間：{fromDate} 至 {toDate}</p>
-        {filteredOrders.length === 0 && <div className="empty">此期間沒有訂單，可調整查詢日期。</div>}
-        {filteredOrders.map((order) => <article className={`order order-result ${order.status === "已取消" ? "cancelled" : ""}`} key={order.id}>
-          <div className="spread"><div><strong>{order.arrival.slice(5).replace("-", "/")}・{order.guest}</strong><p>{order.source}・{order.guests} 位・{order.id}</p></div><em>{order.status}</em></div>
-          <div className="room-line"><span>房型</span>{order.roomType}</div>
-          <div className="room-line"><span>對應房號</span><b>{roomTypeMap[order.roomType]}</b></div>
-          <div className="room-line"><span>住宿日期</span>{order.arrival} → {order.departure}</div>
-        </article>)}
-        <p className="privacy">預設顯示本週；可自行指定任意起訖日期</p>
-      </section>}
+  return <main className="app-shell">
+    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></header>
+    <nav className="tabs five" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "prep" ? loadPrep() : switchView(key as View)}>{label}</button>)}</nav>
+    {message && <p className="notice">{message}</p>}
 
-      {view === "visitor" && <section className="screen">
-        <div className="section-heading"><h2>待確認來訪</h2><span>剛剛</span></div>
-        <article className="camera-event">
-          <div className="camera" role="img" aria-label="停車場來車代表畫面示意">
-            <span className="camera-name">停車場 1.6</span><div className="car"><i /><i /></div><span className="camera-time">16:42:18</span>
-          </div>
-          <div className="event-copy"><div className="spread"><div><strong>偵測到車輛與人物</strong><p>10 個代表畫面・完整進場動線</p></div><em>待配對</em></div></div>
-        </article>
-        <label htmlFor="order">對應訂單</label>
-        <select id="order"><option>王小姐・301・官網</option><option>林先生・203・Booking</option><option>非住客／供應商</option><option>暫時無法確認</option></select>
-        <label htmlFor="plate">車牌或車輛備註</label><input id="plate" defaultValue="BCE-3281" />
-        <button type="button" className="primary" onClick={() => switchView("checkin")}>綁定訂單並開始接待</button>
-        <button type="button" className="secondary">查看進場短片</button>
-      </section>}
+    {view === "today" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length === 0 && <div className="empty">今日沒有待入住訂單</div>}{todayOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => { setSelectedId(order.id); switchView("checkin"); }} />)}<p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p></section>}
 
-      {view === "checkin" && <section className="screen">
-        <div className="booking-summary"><strong>王小姐・301</strong><br />官網訂房・2 位・8/6–8/8・訂單總額 NT$ 10,000<br />車牌 BCE-3281<small>訂單及訂金資料來自 OwlTing 訂單郵件</small></div>
-        <label htmlFor="identity">身分證號／證件號碼</label><input id="identity" type="password" placeholder="輸入後預設遮蔽" autoComplete="off" />
-        <label className="check"><input type="checkbox" /> 已核對證件正本</label>
-        <div className="two-columns"><div><label htmlFor="guests">實際入住</label><input id="guests" type="number" defaultValue="2" min="1" /></div><div><label htmlFor="payment">尾款方式</label><select id="payment"><option>現金</option><option>轉帳</option></select></div></div>
-        <div className="two-columns"><div><label htmlFor="deposit">已付訂金</label><input id="deposit" value="3,200" readOnly /><small className="field-note">訂單郵件帶入</small></div><div><label htmlFor="balance">本次應收尾款</label><input id="balance" defaultValue="6,800" inputMode="numeric" /></div></div>
-        <div className="two-columns"><div><label htmlFor="breakfast">早餐時間</label><select id="breakfast" value={breakfastTime} onChange={(event) => { setBreakfastTime(event.target.value); if (event.target.value === "不用餐") setBreakfastCount(0); }}><option>08:00</option><option>08:30</option><option>09:00</option><option>09:30</option><option>10:00</option><option>不用餐</option></select></div><div><label htmlFor="breakfast-count">用餐人數</label><input id="breakfast-count" type="number" value={breakfastCount} min="0" onChange={(event) => setBreakfastCount(Number(event.target.value))} /></div></div>
-        <label htmlFor="meal">餐點</label><select id="meal"><option>鮭魚（預設）</option><option>和牛燒飯</option><option>班尼迪克蛋</option><option>雜菜煲</option></select>
-        <label htmlFor="notes">人數差異／飲食禁忌／接待備註</label><textarea id="notes" rows={3} placeholder="如用餐人數不同，填寫原因即可" />
-        <button type="button" className="primary" onClick={() => setDone(true)}>確認並完成入住</button>
-        <p className={done ? "result done" : "result"}>{done ? "✓ 已完成入住，尾款與早餐資料已記錄" : "完成後將更新訂單、收款與備料資料"}</p>
-      </section>}
-    </main>
-  );
+    {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>本週</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => { setSelectedId(order.id); switchView("checkin"); }} />)}<p className="privacy">Gmail 匯入訂單會標示「待確認」，不會覆寫人工資料</p></section>}
+
+    {view === "visitor" && <section className="screen"><div className="section-heading"><h2>待確認來訪</h2><span>攝影機整合預留</span></div><article className="camera-event"><div className="camera" role="img" aria-label="停車場來車示意"><span className="camera-name">停車場</span><div className="car"><i/><i/></div></div></article><label htmlFor="visitor-order">對應訂單</label><select id="visitor-order" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{orders.filter((order) => order.status !== "cancelled").map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{order.sourceChannel}</option>)}</select><label htmlFor="plate">車牌或車輛備註</label><input id="plate" placeholder="人工確認後輸入"/><button type="button" className="primary" onClick={() => switchView("checkin")}>綁定訂單並開始接待</button></section>}
+
+    {view === "checkin" && <section className="screen">{!selected || !base ? <div className="empty">請先從訂單選擇一筆待入住訂單</div> : <form onSubmit={submitCheckin}><div className="booking-summary"><strong>{selected.guestName}・{selected.roomNumber ?? "未分房"}</strong><br/>{selected.sourceChannel}・{selected.adults + selected.children} 位・{selected.arrivalDate}–{selected.departureDate}<br/>總額 {money(selected.totalAmount)}・已付 {money(selected.receivedAmount)}<small>{selected.importState === "pending_review" ? "Gmail 匯入，請接待人員核對" : "已確認訂單"}</small></div><label htmlFor="identity">身分證號／證件號碼</label><input id="identity" name="identity" type="password" placeholder="只保存雜湊與末四碼" autoComplete="off"/><label className="check"><input name="identityVerified" type="checkbox"/> 已核對證件正本</label><div className="two-columns"><div><label>實際入住</label><input name="actualGuests" type="number" defaultValue={selected.adults + selected.children} min="1"/></div><div><label>尾款方式</label><select name="paymentMethod"><option>現金</option><option>轉帳</option>{selected.sourceChannel === "官網" && <option>線上刷卡</option>}</select></div></div><div className="two-columns"><div><label>已付訂金</label><input value={selected.receivedAmount} readOnly/></div><div><label>本次實收尾款</label><input name="balancePaid" defaultValue={selected.balanceAmount} inputMode="numeric"/></div></div><div className="two-columns"><div><label>早餐時間</label><select name="breakfastTime">{base.breakfastTimes.map((time) => <option key={time}>{time}</option>)}</select></div><div><label>用餐人數</label><input name="breakfastCount" type="number" defaultValue={selected.adults + selected.children} min="0"/></div></div><label>餐點</label><select name="mealId">{base.meals.map((meal) => <option key={meal.id} value={meal.id}>{meal.name}{meal.isDefault ? "（預設）" : ""}</option>)}</select><label>人數差異／飲食禁忌／接待備註</label><textarea name="notes" rows={3} defaultValue={selected.specialRequests ?? ""}/><button type="submit" className="primary">確認並完成入住</button></form>}</section>}
+
+    {view === "prep" && <section className="screen"><div className="section-heading"><h2>備料與採購</h2><span>{fromDate} 至 {toDate}</span></div><div className="date-filter"><div className="two-columns"><div><label>起日</label><input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}/></div><div><label>迄日</label><input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}/></div></div><button type="button" className="week-button" onClick={loadPrep}>重新彙總</button></div>{prep?.requirements.length === 0 && <div className="empty">此期間尚無早餐需求</div>}{prep?.requirements.map((item) => <article className="order" key={item.id}><div className="spread"><strong>{item.mealDate}・{item.mealTime}</strong><em>{item.guestCount} 位</em></div><p>{item.roomNumber ?? "未分房"}・{item.mealName ?? "餐點待確認"}</p></article>)}<h3>採購彙總</h3>{prep?.shoppingItems.map((item) => <div className="summary-line" key={`${item.itemName}-${item.unit}`}><span>{item.itemName}</span><strong>{item.quantity} {item.unit}</strong></div>)}{prep && prep.missingMappings.length > 0 && <div className="warning">尚未建立備料對照：{prep.missingMappings.join("、")}。可先使用用餐需求表，待管理者補入食材配方。</div>}</section>}
+  </main>;
+}
+
+function OrderCard({ order, onSelect }: { order: Order; onSelect: () => void }) {
+  return <article className={`order order-result ${order.status === "cancelled" ? "cancelled" : ""}`}><div className="spread"><div><strong>{order.arrivalDate.slice(5).replace("-", "/")}・{order.guestName}</strong><p>{order.sourceChannel}・{order.adults + order.children} 位・{order.id}</p></div><em>{statusLabel[order.status] ?? order.status}</em></div><div className="room-line"><span>房型／房號</span>{order.roomTypeName ?? "待對應"}・<b>{order.roomNumber ?? "—"}</b></div><div className="room-line"><span>住宿日期</span>{order.arrivalDate} → {order.departureDate}</div><div className="room-line"><span>款項</span>已付 {money(order.receivedAmount)}・尾款 {money(order.balanceAmount)}</div>{order.importState === "pending_review" && <p className="review-badge">Gmail 匯入・待人工確認</p>}{order.status !== "cancelled" && <button type="button" className="secondary compact" onClick={onSelect}>開啟接待</button>}</article>;
+}
+
+function ManualOrderForm({ base, onSubmit }: { base: BaseData; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return <form className="manual-form" onSubmit={onSubmit}><h3>手動訂單</h3><label>旅客姓名</label><input name="guestName" required/><div className="two-columns"><div><label>來源</label><select name="sourceChannel">{base.sourceChannels.map((item) => <option key={item}>{item}</option>)}</select></div><div><label>房型</label><select name="roomTypeId">{base.roomTypes.filter((item) => item.isBookable).map((item) => <option key={item.id} value={item.id}>{item.displayName}・{item.defaultRoomNumber}</option>)}</select></div></div><div className="two-columns"><div><label>入住</label><input name="arrivalDate" type="date" required/></div><div><label>退房</label><input name="departureDate" type="date" required/></div></div><div className="two-columns"><div><label>人數</label><input name="adults" type="number" min="1" defaultValue="2"/></div><div><label>總額</label><input name="totalAmount" type="number" min="0"/></div></div><label>已付訂金</label><input name="receivedAmount" type="number" min="0" defaultValue="0"/><label>備註</label><textarea name="specialRequests" rows={2}/><button className="primary" type="submit">儲存訂單</button></form>;
 }
