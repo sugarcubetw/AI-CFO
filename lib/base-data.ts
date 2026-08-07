@@ -18,6 +18,14 @@ export const mealSeed = [
 export const breakfastTimes = ["08:00", "08:30", "09:00", "09:30", "10:00", "不用餐"] as const;
 export const sourceChannels = ["Booking", "官網", "電話訂房", "公務住宿", "現場付款", "活動收入"] as const;
 
+export const settingOptionSeed = [
+  ...breakfastTimes.map((label, sortOrder) => [`breakfast-${sortOrder}`, "breakfast_time", label, "*", sortOrder] as const),
+  ...sourceChannels.map((label, sortOrder) => [`source-${sortOrder}`, "source_channel", label, "*", sortOrder] as const),
+  ["payment-cash", "payment_method", "現金", "*", 0] as const,
+  ["payment-transfer", "payment_method", "轉帳", "*", 1] as const,
+  ["payment-online-card", "payment_method", "線上刷卡", "官網", 2] as const,
+] as const;
+
 export function paymentMethodsFor(channel: string) {
   return channel === "官網" ? ["現金", "轉帳", "線上刷卡"] : ["現金", "轉帳"];
 }

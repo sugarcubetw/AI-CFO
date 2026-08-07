@@ -137,7 +137,24 @@ export const auditLog = sqliteTable("audit_log", {
   objectId: text("object_id").notNull(),
   detailRedacted: text("detail_redacted"),
   occurredAt: text("occurred_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index("idx_audit_log_occurred_at").on(table.occurredAt),
+  index("idx_audit_log_object").on(table.objectType, table.objectId),
+]);
+
+export const settingOptions = sqliteTable("setting_options", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  label: text("label").notNull(),
+  scope: text("scope").notNull().default("*"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_setting_options_category_label_scope").on(table.category, table.label, table.scope),
+  index("idx_setting_options_category_active_sort").on(table.category, table.isActive, table.sortOrder),
+]);
 
 export const orderReconciliationRuns = sqliteTable("order_reconciliation_runs", {
   id: text("id").primaryKey(),

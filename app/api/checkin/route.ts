@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLog, mealRequirements, payments, receptionChecklists, reservations } from "../../../db/schema";
+import { auditLog, mealRequirements, payments, receptionChecklists, reservations, settingOptions } from "../../../db/schema";
 import { breakfastTimes, paymentMethodsFor } from "../../../lib/base-data";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib/server";
 
@@ -27,11 +27,15 @@ export async function POST(request: Request) {
   if (!reservation) return jsonError("找不到訂單", 404);
   if (reservation.status === "cancelled") return jsonError("取消訂單不可辦理入住");
   const breakfastTime = cleanText(body.breakfastTime);
-  if (!breakfastTimes.includes(breakfastTime as typeof breakfastTimes[number])) return jsonError("早餐時間無效");
+  const configuredBreakfast = await db.select().from(settingOptions).where(and(eq(settingOptions.category, "breakfast_time"), eq(settingOptions.isActive, true)));
+  const allowedBreakfast = configuredBreakfast.length ? configuredBreakfast.map((item) => item.label) : [...breakfastTimes];
+  if (!allowedBreakfast.includes(breakfastTime)) return jsonError("早餐時間無效");
   const breakfastCount = breakfastTime === "不用餐" ? 0 : Math.max(0, intValue(body.breakfastCount));
   const actualGuests = Math.max(1, intValue(body.actualGuests, reservation.adults + reservation.children));
   const method = cleanText(body.paymentMethod);
-  if (method && !paymentMethodsFor(reservation.sourceChannel).includes(method)) return jsonError("此訂單來源不支援該付款方式");
+  const configuredPayments = await db.select().from(settingOptions).where(and(eq(settingOptions.category, "payment_method"), eq(settingOptions.isActive, true), or(eq(settingOptions.scope, "*"), eq(settingOptions.scope, reservation.sourceChannel))));
+  const allowedPayments = configuredPayments.length ? configuredPayments.map((item) => item.label) : paymentMethodsFor(reservation.sourceChannel);
+  if (method && !allowedPayments.includes(method)) return jsonError("此訂單來源不支援該付款方式");
   const balancePaid = Math.max(0, intValue(body.balancePaid));
   if (balancePaid > reservation.balanceAmount) {
     return jsonError(`本次實收尾款不可超過目前未收金額（${reservation.balanceAmount} 元）；若只是修改入住資料，請將尾款填 0`);

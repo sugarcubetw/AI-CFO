@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { orderReconciliationItems, orderReconciliationRuns, reservations, roomTypes } from "../../../../db/schema";
+import { auditLog, orderReconciliationItems, orderReconciliationRuns, reservations, roomTypes } from "../../../../db/schema";
 import { parseOwlNestOrderList, OwlNestOrderListRow } from "../../../../lib/owlting-order-list-parser";
 import { actorId, cleanText, isIsoDate, jsonError } from "../../../../lib/server";
 
@@ -96,11 +96,13 @@ export async function POST(request: Request) {
   }
   const missingRows = existingRows.filter((row) => row.status !== "cancelled" && !seen.has(row.id));
   for (const row of missingRows) itemValues.push({ runId, orderId: row.id, action: "missing_from_export", differenceJson: JSON.stringify({ reason: "本次 OwlNest 匯出未出現；不可直接視為取消" }), sourceRowJson: null });
+  const user = await actorId();
   await db.insert(orderReconciliationRuns).values({
     id: runId, periodFrom, periodTo, sourceExportedAt: cleanText(body.sourceExportedAt) || null, status: "completed",
     receivedCount: parsed.rows.length, matchedCount, insertedCount, changedCount, missingCount: missingRows.length,
-    errorCount: parsed.errors.length, payloadHash: contentHash, startedAt, completedAt: new Date().toISOString(), createdBy: await actorId(), notes: cleanText(body.notes) || null,
+    errorCount: parsed.errors.length, payloadHash: contentHash, startedAt, completedAt: new Date().toISOString(), createdBy: user, notes: cleanText(body.notes) || null,
   });
   for (const item of itemValues) await db.insert(orderReconciliationItems).values(item);
+  await db.insert(auditLog).values({ actorId: user, action: parsed.errors.length ? "owlnest.reconcile_with_errors" : "owlnest.reconciled", objectType: "reconciliation_run", objectId: runId, detailRedacted: JSON.stringify({ periodFrom, periodTo, received: parsed.rows.length, inserted: insertedCount, changed: changedCount, missing: missingRows.length, errors: parsed.errors.length }) });
   return Response.json({ ok: true, runId, received: parsed.rows.length, matched: matchedCount, inserted: insertedCount, changed: changedCount, duplicateInExport: duplicateCount, missingFromExport: missingRows.length, errors: parsed.errors, warnings: parsed.warnings }, { status: 201 });
 }

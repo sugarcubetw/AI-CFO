@@ -75,3 +75,20 @@ test("reservation guest correction requires exact prior counts and records an au
   assert.match(route, /reservation\.guest_count_corrected/);
   assert.match(route, /breakfastEstimate: adults \+ children/);
 });
+
+test("base settings are persistent and every change is auditable", async () => {
+  const [schema, settings, logs, bootstrap, checkin, settingsPage] = await Promise.all([
+    read("db/schema.ts"), read("app/api/settings/route.ts"), read("app/api/logs/route.ts"),
+    read("app/api/bootstrap/route.ts"), read("app/api/checkin/route.ts"), read("app/settings/page.tsx"),
+  ]);
+  assert.match(schema, /settingOptions/);
+  assert.match(schema, /idx_setting_options_category_label_scope/);
+  assert.match(settings, /setting\.created/);
+  assert.match(settings, /room_type\.updated/);
+  assert.match(logs, /auditLog/);
+  assert.match(bootstrap, /onConflictDoNothing/);
+  assert.match(checkin, /configuredBreakfast/);
+  assert.match(checkin, /configuredPayments/);
+  assert.match(settingsPage, /基礎資料設定/);
+  assert.match(settingsPage, /執行記錄/);
+});
