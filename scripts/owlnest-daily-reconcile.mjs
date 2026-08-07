@@ -80,17 +80,36 @@ async function hasOwlNestOrderList(page) {
 }
 
 async function chooseDateRange(page, from, to) {
-  const inputs = page.locator("input[type=date]");
-  if (await inputs.count() >= 2) {
-    await inputs.nth(0).fill(from);
-    await inputs.nth(1).fill(to);
+  const inputs = page.locator("input");
+  const descriptors = await inputs.evaluateAll((elements) => elements.map((element) => ({
+    value: element.value,
+    placeholder: element.getAttribute("placeholder") ?? "",
+    aria: element.getAttribute("aria-label") ?? "",
+    type: element.getAttribute("type") ?? "",
+  })));
+  const dateIndexes = descriptors.map((item, index) => ({ item, index })).filter(({ item }) =>
+    /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(item.value) || /日期|date|yyyy/i.test(`${item.placeholder} ${item.aria}`),
+  ).map(({ index }) => index);
+  if (dateIndexes.length >= 2) {
+    const startInput = inputs.nth(dateIndexes[0]);
+    const endInput = inputs.nth(dateIndexes[1]);
+    await startInput.fill(from);
+    await endInput.fill(to);
   } else {
     throw new Error("OwlNest 日期欄位結構已變更，未安全執行下載");
   }
-  const search = page.getByRole("button", { name: /搜尋|查詢|套用/ });
-  if (await search.count()) await search.first().click();
-  else await inputs.nth(1).press("Enter");
+  const buttons = page.locator("button");
+  const buttonDescriptors = await buttons.evaluateAll((elements) => elements.map((element) => ({
+    text: element.textContent ?? "",
+    aria: element.getAttribute("aria-label") ?? "",
+    title: element.getAttribute("title") ?? "",
+  })));
+  const searchIndex = buttonDescriptors.findIndex((item) => /搜尋|查詢|套用|search/i.test(`${item.text} ${item.aria} ${item.title}`));
+  if (searchIndex >= 0) await buttons.nth(searchIndex).click();
+  else await inputs.nth(dateIndexes[1]).press("Enter");
   await page.waitForTimeout(800);
+  const finalValues = await inputs.evaluateAll((elements, indexes) => indexes.map((index) => elements[index]?.value ?? ""), dateIndexes.slice(0, 2));
+  if (finalValues[0].replaceAll("/", "-") !== from || finalValues[1].replaceAll("/", "-") !== to) throw new Error("OwlNest 日期區間未成功套用，未安全執行下載");
 }
 
 async function downloadCsv(page) {
