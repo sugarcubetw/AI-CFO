@@ -22,7 +22,7 @@ type PrepData = {
   latestReport: { id: string; reportType: string; revision: number } | null;
   quantitiesDeferred: boolean;
 };
-type ReconcileResult = { runId: string; received: number; matched: number; inserted: number; changed: number; missingFromExport: number; errors: { row: number; reason: string }[]; warnings: string[] };
+type ReconcileResult = { runId: string; received: number; matched: number; inserted: number; changed: number; duplicateInExport?: number; missingFromExport: number; errors: { row: number; reason: string }[]; warnings: string[] };
 type ReconcileRun = { id: string; periodFrom: string; periodTo: string; status: string; receivedCount: number; matchedCount: number; insertedCount: number; changedCount: number; missingCount: number; errorCount: number; startedAt: string } | null;
 type ReconcileItem = { id: number; orderId: string; action: string; differenceJson: string | null };
 

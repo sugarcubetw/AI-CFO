@@ -121,6 +121,9 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
     const balanceAmount = listedBalance ? amount(listedBalance) : Math.max(0, totalAmount - receivedAmount);
     const roomValue = text(raw, ["客房類別", "房型", "客房"]);
     const roomInfo = room(roomValue);
+    if (!roomTypes.some(([name]) => roomValue.includes(name))) warnings.push(`訂單 ${orderId} 的房型未對應主檔`);
+    if (!sourceValue) warnings.push(`訂單 ${orderId} 缺少訂單來源`);
+    if (!text(raw, ["付款狀態", "付款狀態說明"])) warnings.push(`訂單 ${orderId} 缺少付款狀態`);
     rows.push({
       orderId, orderedAt: date(text(raw, ["訂購時間", "訂單時間", "建立時間"])) || text(raw, ["訂購時間", "訂單時間", "建立時間"]) || null,
       arrivalDate, departureDate, guestName, ...roomInfo, totalAmount, receivedAmount, balanceAmount,
@@ -131,4 +134,3 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
   }
   return { rows, errors, warnings };
 }
-

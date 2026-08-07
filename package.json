@@ -12,7 +12,9 @@
     "test": "pnpm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "p6:smoke": "node scripts/p6-import-smoke.mjs"
+    "p6:smoke": "node scripts/p6-import-smoke.mjs",
+    "owlnest:daily": "node scripts/owlnest-daily-reconcile.mjs",
+    "owlnest:login": "node scripts/owlnest-daily-reconcile.mjs --login"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

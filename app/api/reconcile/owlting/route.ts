@@ -63,8 +63,9 @@ export async function POST(request: Request) {
   let matchedCount = 0;
   let insertedCount = 0;
   let changedCount = 0;
+  let duplicateCount = 0;
   for (const row of parsed.rows) {
-    if (seen.has(row.orderId)) { itemValues.push({ runId, orderId: row.orderId, action: "duplicate_in_export", differenceJson: null, sourceRowJson: JSON.stringify(row.raw) }); continue; }
+    if (seen.has(row.orderId)) { duplicateCount += 1; itemValues.push({ runId, orderId: row.orderId, action: "duplicate_in_export", differenceJson: null, sourceRowJson: JSON.stringify(row.raw) }); continue; }
     seen.add(row.orderId);
     const roomType = roomRows.find((candidate) => candidate.sourceName === row.roomTypeName || candidate.displayName === row.roomTypeName);
     const existing = existingById.get(row.orderId);
@@ -97,5 +98,5 @@ export async function POST(request: Request) {
     errorCount: parsed.errors.length, payloadHash: contentHash, startedAt, completedAt: new Date().toISOString(), createdBy: await actorId(), notes: cleanText(body.notes) || null,
   });
   for (const item of itemValues) await db.insert(orderReconciliationItems).values(item);
-  return Response.json({ ok: true, runId, received: parsed.rows.length, matched: matchedCount, inserted: insertedCount, changed: changedCount, missingFromExport: missingRows.length, errors: parsed.errors, warnings: parsed.warnings }, { status: 201 });
+  return Response.json({ ok: true, runId, received: parsed.rows.length, matched: matchedCount, inserted: insertedCount, changed: changedCount, duplicateInExport: duplicateCount, missingFromExport: missingRows.length, errors: parsed.errors, warnings: parsed.warnings }, { status: 201 });
 }

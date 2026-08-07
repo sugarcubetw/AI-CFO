@@ -100,6 +100,21 @@ OwlNest 目前沒有提供本專案可直接使用的 API，因此 V1 採安全�
 
 每日核對建議以今日至未來 90 日為區間，並在入住前更新一次。訂金比例與付款規則仍由 OwlNest/PMS 決定，本系統只接收列表上的已收、未收、付款方式與付款狀態。
 
+## 每日自動核對（本機 Agent）
+
+要做到「平常自動執行、只有異常才通知」，請在每天開機的 Mac 上使用 `scripts/owlnest-daily-reconcile.mjs`。它會使用本機受限的 Playwright 持久 session，唯讀開啟 OwlNest、下載 CSV、以同一瀏覽器 session 呼叫營運工作台的核對 API；正常時不通知，只有欄位差異、匯出未出現、解析錯誤、登入失效或頁面改版才通知。
+
+首次設定需人工完成一次登入：
+
+```bash
+pnpm add -D playwright
+pnpm exec playwright install chromium
+cp scripts/owlnest-agent.env.example .env.owlnest-agent
+pnpm run owlnest:login
+```
+
+確認 OwlNest 訂單列表與營運網站都能在同一個瀏覽器 session 開啟後，才啟用 `scripts/com.fangtang.owlnest-reconcile.plist.example` 的 macOS `launchd` 排程。這個 Agent 不會繞過 2FA、CAPTCHA 或權限，也不會回寫 OwlNest。通知通道需填入受限的 `RECONCILE_NOTIFY_WEBHOOK_URL`；若未設定，Mac 仍會顯示系統通知並保存錯誤紀錄。
+
 ## Learn More
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
