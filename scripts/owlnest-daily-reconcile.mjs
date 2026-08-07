@@ -85,9 +85,11 @@ async function hasOwlNestOrderList(page) {
 }
 
 async function chooseDateRange(page, from, to) {
-  // Element UI renders a hidden input alongside the visible date picker input.
-  // Only inspect visible controls; filling the hidden clone causes a timeout.
-  const inputs = page.locator("input:visible");
+  // OwlNest has two date-range components: the first belongs to the order list
+  // and the second belongs to the project report. Scope to the first component
+  // so the search button definitely refreshes the order list.
+  const datePicker = page.locator(".date-range-picker").first();
+  const inputs = datePicker.locator("input:visible");
   const descriptors = await inputs.evaluateAll((elements) => elements.map((element) => ({
     value: element.value,
     placeholder: element.getAttribute("placeholder") ?? "",
@@ -105,15 +107,9 @@ async function chooseDateRange(page, from, to) {
   } else {
     throw new Error("OwlNest 日期欄位結構已變更，未安全執行下載");
   }
-  const buttons = page.locator("button");
-  const buttonDescriptors = await buttons.evaluateAll((elements) => elements.map((element) => ({
-    text: element.textContent ?? "",
-    aria: element.getAttribute("aria-label") ?? "",
-    title: element.getAttribute("title") ?? "",
-  })));
-  const searchIndex = buttonDescriptors.findIndex((item) => /搜尋|查詢|套用|search/i.test(`${item.text} ${item.aria} ${item.title}`));
-  if (searchIndex >= 0) await buttons.nth(searchIndex).click();
-  else await inputs.nth(dateIndexes[1]).press("Enter");
+  const search = datePicker.locator("button");
+  if (!await search.count()) throw new Error("找不到 OwlNest 訂單列表日期查詢按鈕，未安全執行下載");
+  await search.first().click();
   await page.waitForTimeout(800);
   const finalValues = await inputs.evaluateAll((elements, indexes) => indexes.map((index) => elements[index]?.value ?? ""), dateIndexes.slice(0, 2));
   if (finalValues[0].replaceAll("/", "-") !== from || finalValues[1].replaceAll("/", "-") !== to) throw new Error("OwlNest 日期區間未成功套用，未安全執行下載");
