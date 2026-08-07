@@ -1,0 +1,92 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { parseOwltingBatch, parseOwltingEmail } from "../lib/owlting-email-parser.ts";
+
+const bookingBody = `來自 Booking.com 的新訂單！
+OTA訂單編號為: 5193796340
+訂單編號： OBE92210718626080601
+入住日期
+退房日期
+2026-08-08
+2026-08-09
+房型名稱
+湖水綠意雙人房
+Booking.com
+人數
+大人 2 人,小孩 0 人,嬰兒 0 人
+剩餘尾款
+TWD 7700
+訂單款項
+TWD 7700
+付款狀態
+待結清
+旅客姓名
+測試旅客
+旅客信箱
+te********@guest.booking.com
+特殊需求
+無
+若對訂單有任何相關問題`;
+
+const websiteBody = `您有新訂單！
+訂單編號： OBE99420718626080602
+入住日期
+退房日期
+2026-09-14
+2026-09-15
+房型名稱
+晨光綠語雙人房
+官網優惠價
+人數
+大人 2 人,小孩 0 人,嬰兒 0 人
+訂單款項
+TWD 5800
+已收金額
+TWD 2900
+剩餘尾款
+TWD 2900
+支付方式
+信用卡
+付款狀態
+待結清
+旅客姓名
+測試旅客
+特殊需求
+一位蛋奶素
+取消規定`;
+
+test("parses Booking order amounts, room and guests", () => {
+  const result = parseOwltingEmail({ id: "m1", from: "OwlNest_Booking <owlnest@owlting.com>", subject: "Booking.com 訂單成立通知 (訂單編號 OBE92210718626080601)", body: bookingBody, emailTs: "2026-08-06T14:19:43Z" });
+  assert.equal(result.state, "parsed");
+  assert.equal(result.order.sourceChannel, "Booking");
+  assert.equal(result.order.roomTypeName, "湖水綠意雙人房");
+  assert.equal(result.order.adults, 2);
+  assert.equal(result.order.totalAmount, 7700);
+  assert.equal(result.order.balanceAmount, 7700);
+});
+
+test("parses website deposit and payment method", () => {
+  const result = parseOwltingEmail({ id: "m2", from: "owlnest@owlting.com", subject: "新預定通知信！ ( 訂單編號: OBE99420718626080602 )", body: websiteBody, emailTs: "2026-08-06T16:20:59Z" });
+  assert.equal(result.state, "parsed");
+  assert.equal(result.order.sourceChannel, "官網");
+  assert.equal(result.order.receivedAmount, 2900);
+  assert.equal(result.order.paymentMethod, "信用卡");
+  assert.match(result.order.specialRequests, /蛋奶素/);
+});
+
+test("cancellation status wins and suspicious amounts are warned", () => {
+  const result = parseOwltingEmail({ id: "m3", from: "owlnest@owlting.com", subject: "Booking.com 訂單取消通知 (訂單編號 OBE92210718626080601)", body: bookingBody.replace("TWD 7700\n訂單款項\nTWD 7700", "TWD 7700\n訂單款項\nTWD 0"), emailTs: "2026-08-07T00:00:00Z" });
+  assert.equal(result.state, "parsed");
+  assert.equal(result.order.eventType, "cancelled");
+  assert.equal(result.order.paymentStatus, "cancelled");
+  assert.ok(result.order.parseWarnings.includes("cancelled_amounts_not_financial_truth"));
+});
+
+test("ignores non-order OwlTing messages and wrong senders", () => {
+  const batch = parseOwltingBatch([
+    { id: "m4", from: "owlnest@owlting.com", subject: "住客傳送新訊息", body: bookingBody, emailTs: "2026-08-07T00:00:00Z" },
+    { id: "m5", from: "other@example.com", subject: "訂單成立通知 OBE1", body: bookingBody, emailTs: "2026-08-07T00:00:00Z" },
+  ]);
+  assert.equal(batch.orders.length, 0);
+  assert.equal(batch.ignored.length, 2);
+});

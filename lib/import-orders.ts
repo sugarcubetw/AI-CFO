@@ -10,6 +10,7 @@ export type ImportedOrder = {
   arrivalDate: string;
   departureDate: string;
   roomTypeName: string;
+  roomTypeNames?: string[];
   adults: number;
   children?: number;
   infants?: number;
@@ -19,6 +20,7 @@ export type ImportedOrder = {
   paymentMethod?: string;
   paymentStatus?: string;
   specialRequests?: string;
+  parseWarnings?: string[];
 };
 
 export function canonicalImportEvent(input: ImportedOrder) {
