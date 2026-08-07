@@ -85,7 +85,14 @@ export function parseOwltingEmail(message: GmailOrderMessage): ParseResult {
 export function parseOwltingBatch(messages: GmailOrderMessage[]) {
   const results = messages.map(parseOwltingEmail);
   return {
-    orders: results.flatMap((result) => result.state === "parsed" ? [result.order] : []),
+    // Gmail search results are normally newest-first. Apply events oldest-first so
+    // a later modification or cancellation is the final reservation state.
+    orders: results
+      .flatMap((result) => result.state === "parsed" ? [result.order] : [])
+      .sort((left, right) => {
+        const occurred = Date.parse(left.occurredAt) - Date.parse(right.occurredAt);
+        return occurred || left.messageId.localeCompare(right.messageId);
+      }),
     ignored: results.filter((result) => result.state === "ignored"),
     errors: results.filter((result) => result.state === "error"),
   };

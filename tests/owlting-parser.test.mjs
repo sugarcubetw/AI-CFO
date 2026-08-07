@@ -90,3 +90,22 @@ test("ignores non-order OwlTing messages and wrong senders", () => {
   assert.equal(batch.orders.length, 0);
   assert.equal(batch.ignored.length, 2);
 });
+
+test("sorts Gmail newest-first results into chronological event order", () => {
+  const cancelled = {
+    id: "cancelled-newer",
+    from: "owlnest@owlting.com",
+    subject: "Booking.com 訂單取消通知 (訂單編號 OBE92210718626080601)",
+    body: bookingBody,
+    emailTs: "2026-08-07T00:00:00Z",
+  };
+  const created = {
+    id: "created-older",
+    from: "owlnest@owlting.com",
+    subject: "Booking.com 訂單成立通知 (訂單編號 OBE92210718626080601)",
+    body: bookingBody,
+    emailTs: "2026-08-06T00:00:00Z",
+  };
+  const batch = parseOwltingBatch([cancelled, created]);
+  assert.deepEqual(batch.orders.map((order) => order.eventType), ["created", "cancelled"]);
+});
