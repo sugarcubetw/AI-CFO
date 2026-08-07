@@ -297,15 +297,32 @@ async function savePendingReconcile(content, range, error) {
 
 async function waitForOperationsLogin(page) {
   const deadline = Date.now() + 180_000;
+  const opsOrigin = new URL(OPS_SITE_URL).origin;
   let prompted = false;
+  let loginStarted = false;
+  let returnedFromChatGPT = false;
   while (Date.now() < deadline) {
-    const bodyText = await page.locator("body").innerText().catch(() => "");
-    const requiresLogin = page.url().includes("/signin-with-chatgpt")
-      || /Sign in required|You're almost in|Continue with ChatGPT/i.test(bodyText);
-    if (!requiresLogin) return;
+    const currentUrl = page.isClosed() ? "" : page.url();
+    const bodyText = page.isClosed() ? "" : await page.locator("body").innerText().catch(() => "");
+    const onOperationsSite = currentUrl.startsWith(opsOrigin);
+    const requiresLogin = onOperationsSite && (currentUrl.includes("/signin-with-chatgpt")
+      || /Sign in required|You're almost in|Continue with ChatGPT/i.test(bodyText));
+    if (onOperationsSite && !requiresLogin && !currentUrl.includes("/signin-with-chatgpt")) return page;
     if (!prompted) {
       log("方糖營運工作台需要首次 ChatGPT 登入；請在新開的工作台視窗完成登入，完成後 Agent 會自動繼續，不需按 Enter。");
       prompted = true;
+    }
+    if (requiresLogin && !loginStarted) {
+      const signIn = page.getByRole("link", { name: /Continue with ChatGPT/i }).first();
+      if (await signIn.count() && await signIn.isVisible().catch(() => false)) {
+        await signIn.click().catch(() => {});
+        loginStarted = true;
+        log("已開啟 ChatGPT 登入流程，等待登入完成並回到方糖工作台…");
+      }
+    }
+    if (!onOperationsSite && !returnedFromChatGPT) {
+      returnedFromChatGPT = true;
+      log("正在等待 ChatGPT 登入完成並回到方糖工作台…");
     }
     await page.waitForTimeout(2000);
   }
@@ -342,11 +359,11 @@ async function run() {
     const opsPage = await context.newPage();
     log("正在開啟方糖營運工作台…");
     await opsPage.goto(OPS_SITE_URL, { waitUntil: "domcontentloaded" });
-    await waitForOperationsLogin(opsPage);
+    const authenticatedOpsPage = await waitForOperationsLogin(opsPage);
     log("正在送出訂單列表進行核對…");
     let result;
     try {
-      result = await postToOperations(opsPage, content, range);
+      result = await postToOperations(authenticatedOpsPage, content, range);
     } catch (error) {
       const pendingPath = await savePendingReconcile(content, range, error);
       log(`營運工作台目前無法接收核對資料，已保存待重試檔案：${pendingPath}`);
