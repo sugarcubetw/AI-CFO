@@ -85,7 +85,9 @@ async function hasOwlNestOrderList(page) {
 }
 
 async function chooseDateRange(page, from, to) {
-  const inputs = page.locator("input");
+  // Element UI renders a hidden input alongside the visible date picker input.
+  // Only inspect visible controls; filling the hidden clone causes a timeout.
+  const inputs = page.locator("input:visible");
   const descriptors = await inputs.evaluateAll((elements) => elements.map((element) => ({
     value: element.value,
     placeholder: element.getAttribute("placeholder") ?? "",
