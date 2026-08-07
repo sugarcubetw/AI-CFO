@@ -113,7 +113,7 @@ cp scripts/owlnest-agent.env.example .env.owlnest-agent
 pnpm run owlnest:login
 ```
 
-確認 OwlNest 訂單列表與營運網站都能在同一個瀏覽器 session 開啟後，才啟用 `scripts/com.fangtang.owlnest-reconcile.plist.example` 的 macOS `launchd` 排程。這個 Agent 不會繞過 2FA、CAPTCHA 或權限，也不會回寫 OwlNest。通知通道需填入受限的 `RECONCILE_NOTIFY_WEBHOOK_URL`；若未設定，Mac 仍會顯示系統通知並保存錯誤紀錄。
+登入完成後不需要按 Enter；Agent 會自動偵測登入結果、切換至「訂單列表」、設定日期並按下查詢。確認 OwlNest 訂單列表與營運網站都能在同一個瀏覽器 session 開啟後，才啟用 `scripts/com.fangtang.owlnest-reconcile.plist.example` 的 macOS `launchd` 排程。這個 Agent 不會繞過 2FA、CAPTCHA 或權限，也不會回寫 OwlNest。通知通道需填入受限的 `RECONCILE_NOTIFY_WEBHOOK_URL`；若未設定，Mac 仍會顯示系統通知並保存錯誤紀錄。
 
 ## Learn More
 
