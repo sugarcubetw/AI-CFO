@@ -31,13 +31,18 @@ const PERIOD_DAYS = Math.max(1, Number(process.env.OWLNEST_PERIOD_DAYS ?? 90));
 const HEADLESS = process.env.OWLNEST_HEADLESS !== "false";
 
 function log(message) { process.stdout.write(`[OwlNest Agent] ${message}\n`); }
-function isoDate(date) { return date.toISOString().slice(0, 10); }
+function localIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 function period() {
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   const to = new Date(from);
   to.setDate(to.getDate() + PERIOD_DAYS);
-  return { from: isoDate(from), to: isoDate(to) };
+  return { from: localIsoDate(from), to: localIsoDate(to) };
 }
 
 async function notify(payload) {
