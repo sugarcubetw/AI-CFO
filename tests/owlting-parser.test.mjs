@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseOwltingBatch, parseOwltingEmail } from "../lib/owlting-email-parser.ts";
+import { parseOwlNestOrderList } from "../lib/owlting-order-list-parser.ts";
 
 const bookingBody = `來自 Booking.com 的新訂單！
 OTA訂單編號為: 5193796340
@@ -108,4 +109,16 @@ test("sorts Gmail newest-first results into chronological event order", () => {
   };
   const batch = parseOwltingBatch([cancelled, created]);
   assert.deepEqual(batch.orders.map((order) => order.eventType), ["created", "cancelled"]);
+});
+
+test("parses OwlNest CSV order list and derives channel, room and balance", () => {
+  const csv = `訂單編號,訂購時間,入住日期,退房日期,姓名,客房類別,總金額,已收,未收,訂單來源,OTA訂單編號,官網金流,付款狀態\nOBE56170718626052201,2026-05-22 23:49,2026-08-07,2026-08-08,張 珮婕,湖畔拾影雙人房 * 1,"5,380",0,"5,380",Booking.com 5583941820,5583941820,,待結清`;
+  const result = parseOwlNestOrderList(csv);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].sourceChannel, "Booking");
+  assert.equal(result.rows[0].roomNumber, "201");
+  assert.equal(result.rows[0].totalAmount, 5380);
+  assert.equal(result.rows[0].balanceAmount, 5380);
+  assert.equal(result.rows[0].otaExternalId, "5583941820");
 });

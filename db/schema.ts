@@ -139,6 +139,42 @@ export const auditLog = sqliteTable("audit_log", {
   occurredAt: text("occurred_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const orderReconciliationRuns = sqliteTable("order_reconciliation_runs", {
+  id: text("id").primaryKey(),
+  sourceSystem: text("source_system").notNull().default("owlnest_export"),
+  periodFrom: text("period_from").notNull(),
+  periodTo: text("period_to").notNull(),
+  sourceExportedAt: text("source_exported_at"),
+  status: text("status").notNull().default("completed"),
+  receivedCount: integer("received_count").notNull().default(0),
+  matchedCount: integer("matched_count").notNull().default(0),
+  insertedCount: integer("inserted_count").notNull().default(0),
+  changedCount: integer("changed_count").notNull().default(0),
+  missingCount: integer("missing_count").notNull().default(0),
+  errorCount: integer("error_count").notNull().default(0),
+  payloadHash: text("payload_hash"),
+  startedAt: text("started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  completedAt: text("completed_at"),
+  createdBy: text("created_by").notNull(),
+  notes: text("notes"),
+}, (table) => [
+  index("idx_reconciliation_runs_period").on(table.periodFrom, table.periodTo),
+  index("idx_reconciliation_runs_started").on(table.startedAt),
+]);
+
+export const orderReconciliationItems = sqliteTable("order_reconciliation_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  runId: text("run_id").notNull().references(() => orderReconciliationRuns.id),
+  orderId: text("order_id").notNull(),
+  action: text("action").notNull(),
+  differenceJson: text("difference_json"),
+  sourceRowJson: text("source_row_json"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_reconciliation_items_run").on(table.runId),
+  index("idx_reconciliation_items_order").on(table.orderId),
+]);
+
 export const prepReports = sqliteTable("prep_reports", {
   id: text("id").primaryKey(),
   periodFrom: text("period_from").notNull(),

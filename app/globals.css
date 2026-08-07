@@ -12,6 +12,7 @@ button { cursor:pointer; }
 .arrival-button { border:0; border-radius:999px; padding:9px 12px; color:#17452e; background:#fff; font-weight:600; }
 .tabs { position:sticky; top:0; z-index:5; display:grid; grid-template-columns:repeat(4,1fr); background:#fff; border-bottom:1px solid #d8ded8; }
 .tabs.five { grid-template-columns:repeat(5,1fr); }
+.tabs.six { grid-template-columns:repeat(6,1fr); }
 .tabs button { border:0; border-bottom:3px solid transparent; padding:13px 3px 11px; color:#6a756d; background:transparent; font-weight:600; }
 .tabs button.active { color:#1f5b3a; border-bottom-color:#1f5b3a; }
 .screen { padding:15px 14px 30px; }

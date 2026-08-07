@@ -3,7 +3,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-type View = "today" | "orders" | "visitor" | "checkin" | "prep";
+type View = "today" | "orders" | "visitor" | "checkin" | "prep" | "reconcile";
 type Order = {
   id: string; guestName: string; sourceChannel: string; status: string; importState: string;
   arrivalDate: string; departureDate: string; roomTypeId: string | null; roomTypeName: string | null;
@@ -22,6 +22,8 @@ type PrepData = {
   latestReport: { id: string; reportType: string; revision: number } | null;
   quantitiesDeferred: boolean;
 };
+type ReconcileResult = { runId: string; received: number; matched: number; inserted: number; changed: number; missingFromExport: number; errors: { row: number; reason: string }[]; warnings: string[] };
+type ReconcileRun = { id: string; periodFrom: string; periodTo: string; status: string; receivedCount: number; matchedCount: number; insertedCount: number; changedCount: number; missingCount: number; errorCount: number; startedAt: string } | null;
 
 const today = new Date().toISOString().slice(0, 10);
 function weekRange() {
@@ -47,6 +49,11 @@ export default function Home() {
   const [prep, setPrep] = useState<PrepData | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [newMeal, setNewMeal] = useState("");
+  const [reconcileContent, setReconcileContent] = useState("");
+  const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
+  const [latestReconcile, setLatestReconcile] = useState<ReconcileRun>(null);
+  const [reconcileFrom, setReconcileFrom] = useState(today);
+  const [reconcileTo, setReconcileTo] = useState(() => { const date = new Date(`${today}T00:00:00`); date.setUTCDate(date.getUTCDate() + 90); return date.toISOString().slice(0, 10); });
 
   const loadOrders = useCallback(async (from = fromDate, to = toDate) => {
     const response = await fetch(`/api/orders?from=${from}&to=${to}`);
@@ -98,6 +105,23 @@ export default function Home() {
     setPrep(await response.json() as PrepData); setView("prep");
   }
 
+  async function loadReconcile() {
+    const response = await fetch("/api/reconcile/owlting?limit=5");
+    if (response.ok) { const data = await response.json() as { latest: ReconcileRun }; setLatestReconcile(data.latest); }
+    setView("reconcile");
+  }
+
+  async function importOwlNestList(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reconcileContent.trim()) return setMessage("請先選擇 OwlNest 匯出的 CSV，或貼上 CSV 內容");
+    const response = await fetch("/api/reconcile/owlting", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content: reconcileContent, periodFrom: reconcileFrom, periodTo: reconcileTo, sourceExportedAt: new Date().toISOString() }) });
+    const result = await response.json() as ReconcileResult & { error?: string };
+    if (!response.ok) return setMessage(result.error ?? "訂單核對失敗");
+    setReconcileResult(result); setMessage(`已完成 OwlNest 核對：${result.received} 筆，差異 ${result.changed + result.missingFromExport} 筆`); setReconcileContent("");
+    const latest = await fetch("/api/reconcile/owlting?limit=5");
+    if (latest.ok) setLatestReconcile((await latest.json() as { latest: ReconcileRun }).latest);
+  }
+
   async function savePrepReport(reportType: "draft" | "formal") {
     const response = await fetch("/api/prep", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: fromDate, to: toDate, reportType }) });
     const result = await response.json() as { error?: string; report?: { reportType: string; revision: number; isRevision: boolean }; differences?: unknown[] };
@@ -128,7 +152,7 @@ export default function Home() {
 
   return <main className="app-shell">
     <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></header>
-    <nav className="tabs five" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "prep" ? loadPrep() : switchView(key as View)}>{label}</button>)}</nav>
+    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "prep" ? loadPrep() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
 
     {view === "today" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length === 0 && <div className="empty">今日沒有待入住訂單</div>}{todayOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => { setSelectedId(order.id); switchView("checkin"); }} />)}<p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p></section>}
@@ -140,6 +164,8 @@ export default function Home() {
     {view === "checkin" && <section className="screen">{!selected || !base ? <div className="empty">請先從訂單選擇一筆待入住訂單</div> : <form onSubmit={submitCheckin}><div className="booking-summary"><strong>{selected.guestName}・{selected.roomNumber ?? "未分房"}</strong><br/>{selected.sourceChannel}・{selected.adults + selected.children} 位・{selected.arrivalDate}–{selected.departureDate}<br/>總額 {money(selected.totalAmount)}・已付 {money(selected.receivedAmount)}<small>{selected.importState === "pending_review" ? "Gmail 匯入，請接待人員核對" : "已確認訂單"}</small></div><label htmlFor="identity">身分證號／證件號碼</label><input id="identity" name="identity" type="password" placeholder="只保存雜湊與末四碼" autoComplete="off"/><label className="check"><input name="identityVerified" type="checkbox"/> 已核對證件正本</label><div className="two-columns"><div><label>實際入住</label><input name="actualGuests" type="number" defaultValue={selected.adults + selected.children} min="1"/></div><div><label>尾款方式</label><select name="paymentMethod"><option>現金</option><option>轉帳</option>{selected.sourceChannel === "官網" && <option>線上刷卡</option>}</select></div></div><div className="two-columns"><div><label>已付訂金</label><input value={selected.receivedAmount} readOnly/></div><div><label>本次實收尾款</label><input name="balancePaid" defaultValue={selected.balanceAmount} inputMode="numeric"/></div></div><div className="two-columns"><div><label>早餐時間</label><select name="breakfastTime">{base.breakfastTimes.map((time) => <option key={time}>{time}</option>)}</select></div><div><label>用餐人數</label><input name="breakfastCount" type="number" defaultValue={selected.adults + selected.children} min="0"/></div></div><label>餐點</label><select name="mealId">{base.meals.map((meal) => <option key={meal.id} value={meal.id}>{meal.name}{meal.isDefault ? "（預設）" : ""}</option>)}</select><label>人數差異／飲食禁忌／接待備註</label><textarea name="notes" rows={3} defaultValue={selected.specialRequests ?? ""}/><button type="submit" className="primary">確認並完成入住</button></form>}</section>}
 
     {view === "prep" && <section className="screen"><div className="section-heading"><h2>備料人數</h2><span>{fromDate} 至 {toDate}</span></div><div className="date-filter"><div className="two-columns"><div><label>起日</label><input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}/></div><div><label>迄日</label><input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}/></div></div><button type="button" className="week-button" onClick={loadPrep}>重新彙總</button></div>{prep && <div className="prep-totals"><div><span>已確認</span><strong>{prep.totals.confirmed} 人</strong></div><div><span>預估</span><strong>{prep.totals.estimated} 人</strong></div><div><span>待選餐</span><strong>{prep.totals.unselected} 人</strong></div></div>}<div className="action-row"><button type="button" className="secondary compact" onClick={() => savePrepReport("draft")}>建立草稿</button><button type="button" className="primary compact" onClick={() => savePrepReport("formal")}>建立正式版</button></div>{prep?.latestReport && <p className="range-label">最新版本：{prep.latestReport.reportType} r{prep.latestReport.revision}</p>}{prep?.demands.length === 0 && <div className="empty">此期間尚無早餐需求</div>}{prep?.demands.map((item) => <article className="order" key={`${item.reservationId}-${item.mealDate}`}><div className="spread"><strong>{item.mealDate}・{item.mealTime}</strong><em>{item.guestCount} 人</em></div><p>{item.roomNumber ?? "未分房"}・{item.mealName ?? "餐點待確認"}</p><span className={`demand-state ${item.demandState}`}>{item.demandState === "confirmed" ? "已確認" : item.demandState === "estimated" ? "依訂單預估" : "待選餐"}</span></article>)}<h3>每日餐點人數</h3>{prep?.summary.map((item) => <div className="summary-line" key={`${item.mealDate}-${item.demandState}-${item.mealName}`}><span>{item.mealDate}・{item.mealName ?? (item.demandState === "estimated" ? "餐點待確認（預估）" : "待選餐")}</span><strong>{item.guestCount} 人</strong></div>)}<div className="warning">目前只統計人數；食材用量與列印匯出（S3-09、S3-10）暫緩，不會顯示不準確的採購量。</div><h3 className="meal-admin-title">餐點設定</h3><form className="meal-create" onSubmit={createMeal}><input aria-label="新餐點名稱" value={newMeal} onChange={(event) => setNewMeal(event.target.value)} placeholder="新增餐點名稱"/><button className="primary" type="submit">新增</button></form>{base?.meals.map((meal) => <div className="summary-line" key={meal.id}><span>{meal.name}{meal.isDefault ? "（預設）" : ""}</span><button type="button" className="inline-button" onClick={() => toggleMeal(meal.id, meal.isActive, meal.name)}>{meal.isActive ? "停用" : "啟用"}</button></div>)}</section>}
+
+    {view === "reconcile" && <section className="screen"><div className="section-heading"><h2>OwlNest 訂單核對</h2><span>每日一次</span></div><div className="warning">OwlNest 目前沒有提供 API。請在 OwlNest「銷售概況 → 訂單列表」依入住區間下載 CSV，再在這裡匯入。系統以入住日期比對，不會把「匯出未出現」直接判定為取消。</div><form className="manual-form" onSubmit={importOwlNestList}><div className="two-columns"><div><label>入住起日</label><input type="date" value={reconcileFrom} onChange={(event) => setReconcileFrom(event.target.value)} /></div><div><label>入住迄日</label><input type="date" value={reconcileTo} onChange={(event) => setReconcileTo(event.target.value)} /></div></div><label htmlFor="owlnest-file">選擇 OwlNest CSV</label><input id="owlnest-file" type="file" accept=".csv,.txt" onChange={async (event) => { const file = event.target.files?.[0]; if (file) setReconcileContent(await file.text()); }} /><label htmlFor="owlnest-content">或貼上 CSV 內容</label><textarea id="owlnest-content" rows={5} value={reconcileContent} onChange={(event) => setReconcileContent(event.target.value)} placeholder="訂單編號,訂購時間,入住日期,退房日期,..." /><button type="submit" className="primary">匯入並完成今日核對</button></form>{reconcileResult && <div className="prep-totals"><div><span>匯入</span><strong>{reconcileResult.received}</strong></div><div><span>新增</span><strong>{reconcileResult.inserted}</strong></div><div><span>差異</span><strong>{reconcileResult.changed + reconcileResult.missingFromExport}</strong></div></div>}{latestReconcile && <article className="order"><div className="spread"><strong>上次核對</strong><em>{latestReconcile.status === "completed" ? "已完成" : latestReconcile.status}</em></div><p>{latestReconcile.periodFrom} ～ {latestReconcile.periodTo}・{latestReconcile.receivedCount} 筆</p><p>相符 {latestReconcile.matchedCount}・新增 {latestReconcile.insertedCount}・欄位差異 {latestReconcile.changedCount}・未出現 {latestReconcile.missingCount}</p></article>}<p className="privacy">建議每日入住前更新一次；差異需由管理者確認後才調整訂單。</p></section>}
   </main>;
 }
 
