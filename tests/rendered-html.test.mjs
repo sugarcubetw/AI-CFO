@@ -58,3 +58,12 @@ test("P6 import uses event hash dedupe and cancellation precedence", async () =>
   assert.match(route, /eventType === "cancelled" \? "cancelled"/);
   assert.match(route, /payloadRedacted/);
 });
+
+test("payment correction preserves an audit trail and requires exact-state confirmation", async () => {
+  const route = await read("app/api/admin/payment-correction/route.ts");
+  assert.match(route, /VOID_DUPLICATE_BALANCE_PAYMENT/);
+  assert.match(route, /expectedReceivedAmount/);
+  assert.match(route, /duplicatePayment\.amount !== correctionAmount/);
+  assert.match(route, /status: "voided"/);
+  assert.match(route, /payment\.duplicate_voided/);
+});
