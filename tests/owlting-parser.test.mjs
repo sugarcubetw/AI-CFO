@@ -122,3 +122,13 @@ test("parses OwlNest CSV order list and derives channel, room and balance", () =
   assert.equal(result.rows[0].balanceAmount, 5380);
   assert.equal(result.rows[0].otaExternalId, "5583941820");
 });
+
+test("parses OwlNest export with split surname and given-name columns", () => {
+  const csv = `訂單編號,訂購時間,入住日期,退房日期,姓,名,客房類別,總金額,已收,未收,訂單來源,OTA 訂單編號,官網金流,付款狀態\nOBE75630718626080603,2026-08-07 01:19:39,2026-09-06,2026-09-07,何,維,湖畔拾影雙人房 * 1,4000,0,4000,Booking.com,6471840594,---,待結清`;
+  const result = parseOwlNestOrderList(csv);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.warnings.some((warning) => warning.includes("姓名")), false);
+  assert.equal(result.rows[0].guestName, "何維");
+  assert.equal(result.rows[0].roomNumber, "201");
+  assert.equal(result.rows[0].balanceAmount, 4000);
+});

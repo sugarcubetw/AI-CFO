@@ -99,8 +99,11 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
   const delimiter = detectDelimiter(lines[0]);
   const headers = splitDelimited(lines[0], delimiter).map(normalizeHeader);
   const warnings: string[] = [];
-  const required = ["訂單編號", "入住日期", "退房日期", "姓名"];
+  const required = ["訂單編號", "入住日期", "退房日期"];
   for (const header of required) if (!headers.some((item) => item === header || item.includes(header))) warnings.push(`缺少欄位：${header}`);
+  const hasCombinedName = headers.some((item) => item === "姓名" || item.includes("姓名") || item.includes("旅客姓名"));
+  const hasSplitName = headers.some((item) => item === "姓") && headers.some((item) => item === "名");
+  if (!hasCombinedName && !hasSplitName) warnings.push("缺少欄位：姓名");
   const rows: OwlNestOrderListRow[] = [];
   const errors: { row: number; reason: string }[] = [];
   for (let index = 1; index < lines.length; index += 1) {
@@ -109,7 +112,7 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
     const orderId = text(raw, ["訂單編號", "訂單號碼", "Order ID"]);
     const arrivalDate = date(text(raw, ["入住日期", "入住日", "Check-in"]));
     const departureDate = date(text(raw, ["退房日期", "退房日", "Check-out"]));
-    const guestName = text(raw, ["姓名", "訂購人", "旅客姓名"]);
+    const guestName = text(raw, ["姓名", "訂購人", "旅客姓名"]) || `${text(raw, ["姓", "姓氏"])}${text(raw, ["名", "名字"])}`.trim();
     if (!orderId || !arrivalDate || !departureDate || !guestName) {
       errors.push({ row: index + 1, reason: "訂單編號、入住/退房日期、姓名為必要欄位" });
       continue;
