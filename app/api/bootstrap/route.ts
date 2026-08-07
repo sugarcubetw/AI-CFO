@@ -1,5 +1,5 @@
 import { getDb } from "../../../db";
-import { meals, rooms, roomTypes } from "../../../db/schema";
+import { meals, mealVersions, rooms, roomTypes } from "../../../db/schema";
 import { mealSeed, roomTypeSeed } from "../../../lib/base-data";
 
 export async function POST() {
@@ -10,6 +10,7 @@ export async function POST() {
   }
   for (const [id, name, isDefault] of mealSeed) {
     await db.insert(meals).values({ id, name, isDefault, isActive: true }).onConflictDoUpdate({ target: meals.id, set: { name, isDefault, isActive: true } });
+    await db.insert(mealVersions).values({ mealId: id, version: 1, name, createdBy: "system-bootstrap" }).onConflictDoNothing();
   }
   return Response.json({ ok: true, roomTypes: roomTypeSeed.length, meals: mealSeed.length });
 }

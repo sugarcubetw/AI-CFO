@@ -73,9 +73,24 @@ export const payments = sqliteTable("payments", {
 export const meals = sqliteTable("meals", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
   isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const mealVersions = sqliteTable("meal_versions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  mealId: text("meal_id").notNull().references(() => meals.id),
+  version: integer("version").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_meal_versions_meal_version").on(table.mealId, table.version),
+]);
 
 export const mealPrepItems = sqliteTable("meal_prep_items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -123,3 +138,29 @@ export const auditLog = sqliteTable("audit_log", {
   detailRedacted: text("detail_redacted"),
   occurredAt: text("occurred_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const prepReports = sqliteTable("prep_reports", {
+  id: text("id").primaryKey(),
+  periodFrom: text("period_from").notNull(),
+  periodTo: text("period_to").notNull(),
+  reportType: text("report_type").notNull(),
+  revision: integer("revision").notNull().default(1),
+  basedOnReportId: text("based_on_report_id"),
+  generatedBy: text("generated_by").notNull(),
+  generatedAt: text("generated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_prep_reports_period_revision").on(table.periodFrom, table.periodTo, table.revision),
+  index("idx_prep_reports_period").on(table.periodFrom, table.periodTo),
+]);
+
+export const prepReportLines = sqliteTable("prep_report_lines", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  reportId: text("report_id").notNull().references(() => prepReports.id),
+  mealDate: text("meal_date").notNull(),
+  demandState: text("demand_state").notNull(),
+  mealId: text("meal_id").references(() => meals.id),
+  mealName: text("meal_name"),
+  guestCount: integer("guest_count").notNull(),
+}, (table) => [
+  index("idx_prep_report_lines_report").on(table.reportId),
+]);

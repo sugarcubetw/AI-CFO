@@ -70,4 +70,17 @@ input[readonly] { color:#526057; background:#edf1ed; }
 .review-badge { display:inline-block; margin:10px 0 0; padding:5px 8px; border-radius:999px; color:#7e5700; background:#fff0c9; font-size:11px; }
 .summary-line { display:flex; justify-content:space-between; padding:11px 12px; border-bottom:1px solid #dce2dc; background:#fff; font-size:13px; }
 .warning { margin-top:12px; padding:12px; border-radius:12px; color:#684d0c; background:#fff2ca; font-size:12px; line-height:1.5; }
+.prep-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+.prep-totals div { padding:11px 8px; border-radius:11px; background:#fff; text-align:center; }
+.prep-totals span,.prep-totals strong { display:block; }
+.prep-totals span { color:#6b766e; font-size:10px; }
+.prep-totals strong { margin-top:5px; color:#1f5b3a; font-size:15px; }
+.demand-state { display:inline-block; margin-top:8px; padding:4px 7px; border-radius:999px; font-size:10px; }
+.demand-state.confirmed { color:#1f5b3a; background:#e0f0e4; }
+.demand-state.estimated { color:#77560d; background:#fff0c9; }
+.demand-state.unselected { color:#6b566d; background:#eee5ef; }
+.meal-admin-title { margin-top:22px !important; }
+.meal-create { display:grid; grid-template-columns:1fr 82px; gap:8px; margin-bottom:8px; }
+.meal-create .primary { margin:0; padding:10px; }
+.inline-button { border:1px solid #b9c3bb; border-radius:8px; padding:5px 9px; color:#1f5b3a; background:#fff; font-size:11px; }
 @media (max-width:360px) { .screen { padding:12px 11px 26px; }.camera { height:155px; }.app-header { padding-inline:15px; } }

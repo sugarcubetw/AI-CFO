@@ -23,19 +23,26 @@ test("server renders the Fangtang operations shell", async () => {
 });
 
 test("P2–P5 routes and UI are wired", async () => {
-  const [page, schema, orders, checkin, prep, importRoute, hosting] = await Promise.all([
+  const [page, schema, orders, checkin, prep, prepAuto, importRoute, hosting] = await Promise.all([
     read("app/page.tsx"), read("db/schema.ts"), read("app/api/orders/route.ts"),
-    read("app/api/checkin/route.ts"), read("app/api/prep/route.ts"), read("app/api/import/route.ts"),
+    read("app/api/checkin/route.ts"), read("app/api/prep/route.ts"), read("app/api/prep/auto/route.ts"), read("app/api/import/route.ts"),
     read(".openai/hosting.json"),
   ]);
   assert.match(page, /手動新增訂單/);
   assert.match(page, /身分證號／證件號碼/);
-  assert.match(page, /備料與採購/);
+  assert.match(page, /備料人數/);
+  assert.match(page, /已確認/);
+  assert.match(page, /預估/);
+  assert.match(page, /待選餐/);
   assert.match(schema, /identityHash/);
   assert.doesNotMatch(schema, /identityNumber|identityPlaintext/);
   assert.match(orders, /arrivalDate/);
   assert.match(checkin, /paymentMethodsFor/);
-  assert.match(prep, /missingMappings/);
+  assert.match(prep, /prepReports/);
+  assert.match(prep, /differences/);
+  assert.match(prep, /quantitiesDeferred/);
+  assert.match(prepAuto, /18:00/);
+  assert.match(prepAuto, /reportType: "formal"/);
   assert.match(importRoute, /pending_review/);
   assert.equal(JSON.parse(hosting).d1, "DB");
 });
