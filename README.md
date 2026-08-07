@@ -94,6 +94,12 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm test`: build the starter and verify its rendered loading skeleton
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
+## OwlNest 訂單核對
+
+OwlNest 目前沒有提供本專案可直接使用的 API，因此 V1 採安全的唯讀流程：在 OwlNest「銷售概況 → 訂單列表」設定入住日期區間，選擇「下載訂單列表 → CSV」，再到營運工作台的「核對」頁上傳 CSV。系統以 OwlNest 訂單編號比對，會記錄相符、新增、欄位差異及本次匯出未出現的訂單；未出現不會自動視為取消。
+
+每日核對建議以今日至未來 90 日為區間，並在入住前更新一次。訂金比例與付款規則仍由 OwlNest/PMS 決定，本系統只接收列表上的已收、未收、付款方式與付款狀態。
+
 ## Learn More
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
