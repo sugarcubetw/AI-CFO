@@ -283,6 +283,18 @@ async function postToOperations(page, content, range) {
   return result.body;
 }
 
+async function savePendingReconcile(content, range, error) {
+  await mkdir(STATE_DIR, { recursive: true });
+  const path = join(STATE_DIR, `pending-reconcile-${range.from}_${range.to}.json`);
+  await writeFile(path, JSON.stringify({
+    createdAt: new Date().toISOString(),
+    range,
+    error: error instanceof Error ? error.message : String(error),
+    content,
+  }, null, 2));
+  return path;
+}
+
 async function run() {
   const startedAt = Date.now();
   log("啟動每日核對 Agent…");
@@ -314,7 +326,20 @@ async function run() {
     log("正在開啟方糖營運工作台…");
     await opsPage.goto(OPS_SITE_URL, { waitUntil: "domcontentloaded" });
     log("正在送出訂單列表進行核對…");
-    const result = await postToOperations(opsPage, content, range);
+    let result;
+    try {
+      result = await postToOperations(opsPage, content, range);
+    } catch (error) {
+      const pendingPath = await savePendingReconcile(content, range, error);
+      log(`營運工作台目前無法接收核對資料，已保存待重試檔案：${pendingPath}`);
+      await notify({ title: "核對待重試", lines: [
+        `區間：${range.from}～${range.to}`,
+        "OwlNest CSV 已成功下載，但營運工作台 API 未回傳 JSON。",
+        `待重試檔案：${pendingPath}`,
+        "請先更新／發布營運工作台，之後再重試核對。",
+      ] });
+      return;
+    }
     const summary = { at: new Date().toISOString(), range, csvPath, result };
     await mkdir(STATE_DIR, { recursive: true });
     await writeFile(join(STATE_DIR, "last-run.json"), JSON.stringify(summary, null, 2));
