@@ -126,7 +126,10 @@ async function downloadCsv(page) {
   await button.click();
   const csv = page.getByText("CSV", { exact: true });
   if (!await csv.count()) throw new Error("下載選單沒有 CSV，已停止避免抓錯格式");
-  const downloadPromise = page.waitForEvent("download");
+  // OwlNest generates the report asynchronously. Large date ranges can take
+  // longer than Playwright's default 30-second event timeout.
+  log("OwlNest 正在製作檔案，最多等待 180 秒…");
+  const downloadPromise = page.waitForEvent("download", { timeout: 180000 });
   await csv.last().click();
   const download = await downloadPromise;
   const target = join(STATE_DIR, `owlnest-${new Date().toISOString().replaceAll(/[:.]/g, "-")}.csv`);
