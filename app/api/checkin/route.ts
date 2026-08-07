@@ -33,6 +33,9 @@ export async function POST(request: Request) {
   const method = cleanText(body.paymentMethod);
   if (method && !paymentMethodsFor(reservation.sourceChannel).includes(method)) return jsonError("此訂單來源不支援該付款方式");
   const balancePaid = Math.max(0, intValue(body.balancePaid));
+  if (balancePaid > reservation.balanceAmount) {
+    return jsonError(`本次實收尾款不可超過目前未收金額（${reservation.balanceAmount} 元）；若只是修改入住資料，請將尾款填 0`);
+  }
   const identity = cleanText(body.identity);
   const fingerprint = await identityFingerprint(identity);
   const user = await actorId();

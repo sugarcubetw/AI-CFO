@@ -38,6 +38,9 @@ test("P2–P5 routes and UI are wired", async () => {
   assert.doesNotMatch(schema, /identityNumber|identityPlaintext/);
   assert.match(orders, /arrivalDate/);
   assert.match(checkin, /paymentMethodsFor/);
+  assert.match(checkin, /不可超過目前未收金額/);
+  assert.match(page, /無新收款填 0/);
+  assert.match(page, /修改入住資料/);
   assert.match(prep, /prepReports/);
   assert.match(prep, /differences/);
   assert.match(prep, /quantitiesDeferred/);
