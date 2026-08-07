@@ -295,6 +295,23 @@ async function savePendingReconcile(content, range, error) {
   return path;
 }
 
+async function waitForOperationsLogin(page) {
+  const deadline = Date.now() + 180_000;
+  let prompted = false;
+  while (Date.now() < deadline) {
+    const bodyText = await page.locator("body").innerText().catch(() => "");
+    const requiresLogin = page.url().includes("/signin-with-chatgpt")
+      || /Sign in required|You're almost in|Continue with ChatGPT/i.test(bodyText);
+    if (!requiresLogin) return;
+    if (!prompted) {
+      log("方糖營運工作台需要首次 ChatGPT 登入；請在新開的工作台視窗完成登入，完成後 Agent 會自動繼續，不需按 Enter。");
+      prompted = true;
+    }
+    await page.waitForTimeout(2000);
+  }
+  throw new Error("等待方糖營運工作台登入逾時");
+}
+
 async function run() {
   const startedAt = Date.now();
   log("啟動每日核對 Agent…");
@@ -325,6 +342,7 @@ async function run() {
     const opsPage = await context.newPage();
     log("正在開啟方糖營運工作台…");
     await opsPage.goto(OPS_SITE_URL, { waitUntil: "domcontentloaded" });
+    await waitForOperationsLogin(opsPage);
     log("正在送出訂單列表進行核對…");
     let result;
     try {
