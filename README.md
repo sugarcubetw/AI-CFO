@@ -1,4 +1,18 @@
-# vinext-starter
+# 方糖民宿營運工作台
+
+方糖民宿營運工作台目前聚焦訂單、入住接待、早餐備料及 OwlNest 訂單核對，後續再整合來訪攝影機、LINE、財務管理與 AI CFO。
+
+## 目前進度
+
+- 正式版本：Version 8
+- 營運模組：可使用
+- OwlNest 自動核對：試運轉
+- 來訪攝影機整合：待開發
+- 財務 Web 模組：待開發
+
+完整狀態、已完成項目與下一步請見 [專案進度表](docs/PROJECT_PROGRESS.md)。
+
+## 技術基礎
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
