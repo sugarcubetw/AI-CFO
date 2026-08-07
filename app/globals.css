@@ -67,6 +67,7 @@ input[readonly] { color:#526057; background:#edf1ed; }
 .action-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .compact { margin:8px 0 12px; padding:10px; }
 .manual-form { margin:0 0 14px; padding:14px; border:1px solid #cbd5cc; border-radius:15px; background:#fff; }
+.open-owlnest { display:block; box-sizing:border-box; margin:12px 0; text-align:center; text-decoration:none; }
 .manual-form h3,.screen h3 { margin:0 0 8px; font-size:15px; }
 .review-badge { display:inline-block; margin:10px 0 0; padding:5px 8px; border-radius:999px; color:#7e5700; background:#fff0c9; font-size:11px; }
 .summary-line { display:flex; justify-content:space-between; padding:11px 12px; border-bottom:1px solid #dce2dc; background:#fff; font-size:13px; }
