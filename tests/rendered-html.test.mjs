@@ -129,3 +129,17 @@ test("cross-page navigation uses native form submissions", async () => {
   assert.match(page, /<form className="header-nav-form" action="\/settings" method="get">/);
   assert.match(settings, /<form className="header-nav-form" action="\/" method="get">/);
 });
+
+test("check-in and prep tabs default to Taipei today", async () => {
+  const page = await read("app/page.tsx");
+  assert.match(page, /timeZone: "Asia\/Taipei"/);
+  assert.match(page, /function openTodayCheckin\(\)/);
+  assert.match(page, /setSelectedId\(todayOrders\[0\]\?\.id \?\? ""\)/);
+  assert.match(page, /selected\.arrivalDate !== today/);
+  assert.match(page, /今日入住/);
+  assert.match(page, /function openTodayPrep\(\)/);
+  assert.match(page, /await loadPrep\(today, today\)/);
+  assert.match(page, /今日備料人數/);
+  assert.match(page, /value=\{prepFrom\}/);
+  assert.match(page, /value=\{prepTo\}/);
+});
