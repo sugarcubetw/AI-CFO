@@ -3,6 +3,7 @@ import { getDb } from "../../../db";
 import { auditLog, mealRequirements, payments, receptionChecklists, reservations, settingOptions } from "../../../db/schema";
 import { breakfastTimes, paymentMethodsFor } from "../../../lib/base-data";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib/server";
+import { notifyDailyCheckinComplete } from "../../../lib/line-daily-checkin";
 
 async function identityFingerprint(value: string) {
   if (!value) return { hash: null, last4: null };
@@ -67,5 +68,6 @@ export async function POST(request: Request) {
   } else await db.delete(mealRequirements).where(eq(mealRequirements.reservationId, reservationId));
   await db.update(reservations).set({ status: "checked_in", receivedAmount: reservation.receivedAmount + balancePaid, balanceAmount: Math.max(0, reservation.balanceAmount - balancePaid), paymentMethod: method || reservation.paymentMethod, paymentStatus: balancePaid >= reservation.balanceAmount ? "paid" : reservation.paymentStatus, updatedAt: new Date().toISOString() }).where(eq(reservations.id, reservationId));
   await db.insert(auditLog).values({ actorId: user, action: "reservation.checked_in", objectType: "reservation", objectId: reservationId, detailRedacted: JSON.stringify({ actualGuests, breakfastTime, breakfastCount, identityStored: Boolean(identityHash), identityUpdated: Boolean(fingerprint.hash), balancePaid }) });
-  return Response.json({ ok: true, reservationId, mealDates: breakfastCount > 0 ? datesBetween(reservation.arrivalDate, reservation.departureDate) : [] });
+  const notification = await notifyDailyCheckinComplete(reservation.arrivalDate, { actorId: user });
+  return Response.json({ ok: true, reservationId, mealDates: breakfastCount > 0 ? datesBetween(reservation.arrivalDate, reservation.departureDate) : [], notification: notification.status });
 }
