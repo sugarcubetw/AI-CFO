@@ -106,3 +106,18 @@ test("automation schedules are configurable and audited from base settings", asy
   assert.match(settingsPage, /每日定時/);
   assert.match(settingsPage, /事件觸發/);
 });
+
+test("order status colors and post-check-in summary are wired", async () => {
+  const [page, orders, checkin, css] = await Promise.all([read("app/page.tsx"), read("app/api/orders/route.ts"), read("app/api/checkin/route.ts"), read("app/globals.css")]);
+  assert.match(page, /status-\$\{order\.status\}/);
+  assert.match(page, /目前入住中/);
+  assert.match(page, /查看入住資訊/);
+  assert.match(page, /checkinEditing/);
+  assert.match(page, /StaySummary/);
+  assert.match(orders, /receptionChecklists/);
+  assert.match(orders, /breakfastTime/);
+  assert.match(checkin, /existingChecklist\?\.identityHash/);
+  assert.match(checkin, /db\.delete\(mealRequirements\)/);
+  assert.match(css, /order-result\.status-pending/);
+  assert.match(css, /order-result\.status-checked_in/);
+});

@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLog, reservations, roomTypes } from "../../../db/schema";
+import { auditLog, meals, receptionChecklists, reservations, roomTypes } from "../../../db/schema";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib/server";
 
 export async function GET(request: Request) {
@@ -9,11 +9,24 @@ export async function GET(request: Request) {
   const to = url.searchParams.get("to") ?? "2999-12-31";
   if (!isIsoDate(from) || !isIsoDate(to) || from > to) return jsonError("日期區間無效");
   const db = getDb();
-  const rows = await db.select({ reservation: reservations, roomTypeName: roomTypes.displayName })
+  const rows = await db.select({
+    reservation: reservations,
+    roomTypeName: roomTypes.displayName,
+    actualGuests: receptionChecklists.actualGuests,
+    identityVerified: receptionChecklists.identityVerified,
+    breakfastTime: receptionChecklists.breakfastTime,
+    breakfastCount: receptionChecklists.breakfastCount,
+    mealId: receptionChecklists.mealId,
+    mealName: meals.name,
+    checkinNotes: receptionChecklists.notes,
+    checkedInAt: receptionChecklists.completedAt,
+  })
     .from(reservations).leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+    .leftJoin(receptionChecklists, eq(reservations.id, receptionChecklists.reservationId))
+    .leftJoin(meals, eq(receptionChecklists.mealId, meals.id))
     .where(and(lte(reservations.arrivalDate, to), gte(reservations.departureDate, from)))
     .orderBy(asc(reservations.arrivalDate));
-  return Response.json(rows.map(({ reservation, roomTypeName }) => ({ ...reservation, roomTypeName })));
+  return Response.json(rows.map(({ reservation, ...checkin }) => ({ ...reservation, ...checkin })));
 }
 
 export async function POST(request: Request) {

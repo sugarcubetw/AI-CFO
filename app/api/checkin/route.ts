@@ -43,13 +43,16 @@ export async function POST(request: Request) {
   const identity = cleanText(body.identity);
   const fingerprint = await identityFingerprint(identity);
   const user = await actorId();
+  const [existingChecklist] = await db.select().from(receptionChecklists).where(eq(receptionChecklists.reservationId, reservationId)).limit(1);
+  const identityHash = fingerprint.hash ?? existingChecklist?.identityHash ?? null;
+  const identityLast4 = fingerprint.last4 ?? existingChecklist?.identityLast4 ?? null;
 
   await db.insert(receptionChecklists).values({
-    reservationId, actualGuests, identityHash: fingerprint.hash, identityLast4: fingerprint.last4,
+    reservationId, actualGuests, identityHash, identityLast4,
     identityVerified: Boolean(body.identityVerified), breakfastTime, breakfastCount,
     mealId: cleanText(body.mealId) || null, notes: cleanText(body.notes) || null, completedBy: user,
   }).onConflictDoUpdate({ target: receptionChecklists.reservationId, set: {
-    actualGuests, identityHash: fingerprint.hash, identityLast4: fingerprint.last4,
+    actualGuests, identityHash, identityLast4,
     identityVerified: Boolean(body.identityVerified), breakfastTime, breakfastCount,
     mealId: cleanText(body.mealId) || null, notes: cleanText(body.notes) || null, completedBy: user,
     completedAt: new Date().toISOString(),
@@ -61,8 +64,8 @@ export async function POST(request: Request) {
       await db.insert(mealRequirements).values({ reservationId, mealDate, mealTime: breakfastTime, guestCount: breakfastCount, mealId: cleanText(body.mealId) || null, notes: cleanText(body.notes) || null })
         .onConflictDoUpdate({ target: [mealRequirements.reservationId, mealRequirements.mealDate], set: { mealTime: breakfastTime, guestCount: breakfastCount, mealId: cleanText(body.mealId) || null, notes: cleanText(body.notes) || null } });
     }
-  }
+  } else await db.delete(mealRequirements).where(eq(mealRequirements.reservationId, reservationId));
   await db.update(reservations).set({ status: "checked_in", receivedAmount: reservation.receivedAmount + balancePaid, balanceAmount: Math.max(0, reservation.balanceAmount - balancePaid), paymentMethod: method || reservation.paymentMethod, paymentStatus: balancePaid >= reservation.balanceAmount ? "paid" : reservation.paymentStatus, updatedAt: new Date().toISOString() }).where(eq(reservations.id, reservationId));
-  await db.insert(auditLog).values({ actorId: user, action: "reservation.checked_in", objectType: "reservation", objectId: reservationId, detailRedacted: JSON.stringify({ actualGuests, breakfastTime, breakfastCount, identityStored: Boolean(fingerprint.hash), balancePaid }) });
+  await db.insert(auditLog).values({ actorId: user, action: "reservation.checked_in", objectType: "reservation", objectId: reservationId, detailRedacted: JSON.stringify({ actualGuests, breakfastTime, breakfastCount, identityStored: Boolean(identityHash), identityUpdated: Boolean(fingerprint.hash), balancePaid }) });
   return Response.json({ ok: true, reservationId, mealDates: breakfastCount > 0 ? datesBetween(reservation.arrivalDate, reservation.departureDate) : [] });
 }
