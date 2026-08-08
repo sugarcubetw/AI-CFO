@@ -31,15 +31,13 @@ type ReconcileRun = { id: string; periodFrom: string; periodTo: string; status: 
 type ReconcileItem = { id: number; orderId: string; action: string; differenceJson: string | null };
 
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-function weekRange() {
-  const date = new Date(`${today}T00:00:00`);
-  const day = date.getDay() || 7;
-  date.setDate(date.getDate() - day + 1);
+function forwardWeekRange() {
+  const date = new Date(`${today}T00:00:00Z`);
   const from = date.toISOString().slice(0, 10);
-  date.setDate(date.getDate() + 6);
+  date.setUTCDate(date.getUTCDate() + 6);
   return [from, date.toISOString().slice(0, 10)] as const;
 }
-const initialWeek = weekRange();
+const initialWeek = forwardWeekRange();
 const money = (value: number) => `NT$ ${new Intl.NumberFormat("zh-TW").format(value)}`;
 const statusLabel: Record<string, string> = { pending: "待入住", checked_in: "已入住", cancelled: "已取消" };
 
@@ -47,6 +45,7 @@ export default function Home() {
   const [view, setView] = useState<View>("today");
   const [base, setBase] = useState<BaseData | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [fromDate, setFromDate] = useState(initialWeek[0]);
   const [toDate, setToDate] = useState(initialWeek[1]);
   const [selectedId, setSelectedId] = useState("");
@@ -69,8 +68,19 @@ export default function Home() {
     if (!response.ok) throw new Error("讀取訂單失敗");
     const data = await response.json() as Order[];
     setOrders(data);
-    if (!selectedId && data[0]) setSelectedId(data[0].id);
-  }, [fromDate, toDate, selectedId]);
+    setSelectedId((current) => current || data[0]?.id || "");
+    return data;
+  }, [fromDate, toDate]);
+
+  const loadTodayOrders = useCallback(async () => {
+    const response = await fetch(`/api/orders?from=${today}&to=${today}`);
+    if (!response.ok) throw new Error("讀取今日訂單失敗");
+    const data = await response.json() as Order[];
+    const active = data.filter((order) => order.arrivalDate === today && order.status !== "cancelled");
+    setTodayOrders(active);
+    setSelectedId((current) => current || active[0]?.id || "");
+    return active;
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -78,20 +88,18 @@ export default function Home() {
         await fetch("/api/bootstrap", { method: "POST" });
         const response = await fetch("/api/base-data");
         setBase(await response.json() as BaseData);
-        await loadOrders();
+        await Promise.all([loadTodayOrders(), loadOrders()]);
         setMessage("");
       } catch (error) { setMessage(error instanceof Error ? error.message : "系統初始化失敗"); }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selected = useMemo(() => orders.find((order) => order.id === selectedId) ?? orders[0], [orders, selectedId]);
+  const selected = useMemo(() => todayOrders.find((order) => order.id === selectedId) ?? orders.find((order) => order.id === selectedId) ?? todayOrders[0] ?? orders[0], [orders, selectedId, todayOrders]);
   const selectedPaymentMethods = useMemo(() => {
     if (!selected || !base) return ["現金", "轉帳"];
     const configured = base.paymentMethods.filter((item) => item.isActive && (item.scope === "*" || item.scope === selected.sourceChannel)).map((item) => item.label);
     return configured.length ? configured : selected.sourceChannel === "官網" ? ["現金", "轉帳", "線上刷卡"] : ["現金", "轉帳"];
   }, [base, selected]);
-  const todayOrders = orders.filter((order) => order.arrivalDate === today && order.status !== "cancelled");
-
   async function submitManual(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -100,7 +108,7 @@ export default function Home() {
     const response = await fetch("/api/orders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, roomNumber: roomType?.defaultRoomNumber, adults: Number(body.adults), totalAmount: Number(body.totalAmount), receivedAmount: Number(body.receivedAmount) }) });
     const result = await response.json() as { error?: string };
     if (!response.ok) return setMessage(result.error ?? "新增失敗");
-    setManualOpen(false); setMessage("已新增手動訂單"); await loadOrders();
+    setManualOpen(false); setMessage("已新增手動訂單"); await Promise.all([loadTodayOrders(), loadOrders()]);
   }
 
   async function submitCheckin(event: FormEvent<HTMLFormElement>) {
@@ -116,7 +124,7 @@ export default function Home() {
     const response = await fetch("/api/checkin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, reservationId: selected.id, actualGuests: Number(body.actualGuests), breakfastCount: Number(body.breakfastCount), balancePaid: Number(body.balancePaid), identityVerified: form.get("identityVerified") === "on" }) });
     const result = await response.json() as { error?: string };
     setMessage(response.ok ? "✓ 已完成入住，收款與早餐需求已記錄" : result.error ?? "入住失敗");
-    if (response.ok) { await loadOrders(); setCheckinEditing(false); }
+    if (response.ok) { await Promise.all([loadTodayOrders(), loadOrders()]); setCheckinEditing(false); }
   }
 
   async function loadPrep(from = prepFrom, to = prepTo) {
@@ -174,18 +182,19 @@ export default function Home() {
 
   function switchView(next: View) { setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function openReception(order: Order) { setSelectedId(order.id); setCheckinEditing(order.status !== "checked_in"); switchView("checkin"); }
-  function openTodayCheckin() { setSelectedId(todayOrders[0]?.id ?? ""); setCheckinEditing(false); switchView("checkin"); }
+  async function openTodayView() { await loadTodayOrders(); switchView("today"); }
+  async function openTodayCheckin() { const current = await loadTodayOrders(); setSelectedId(current[0]?.id ?? ""); setCheckinEditing(false); switchView("checkin"); }
 
   return <main className="app-shell">
     <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><form className="header-nav-form" action="/settings" method="get"><button className="header-link" type="submit">設定</button></form><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></div></header>
-    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
+    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "today" ? openTodayView() : key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
 
     {view === "today" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length === 0 && <div className="empty">今日沒有入住訂單</div>}{todayOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p></section>}
 
-    {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="status-legend"><span className="pending">待入住</span><span className="checked-in">目前入住</span><span className="cancelled">已取消</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>本週</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">Gmail 匯入訂單會標示「待確認」，不會覆寫人工資料</p></section>}
+    {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="status-legend"><span className="pending">待入住</span><span className="checked-in">目前入住</span><span className="cancelled">已取消</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>今天起 7 天</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">Gmail 匯入訂單會標示「待確認」，不會覆寫人工資料</p></section>}
 
-    {view === "visitor" && <section className="screen"><div className="section-heading"><h2>待確認來訪</h2><span>攝影機整合預留</span></div><article className="camera-event"><div className="camera" role="img" aria-label="停車場來車示意"><span className="camera-name">停車場</span><div className="car"><i/><i/></div></div></article><label htmlFor="visitor-order">對應訂單</label><select id="visitor-order" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{orders.filter((order) => order.status !== "cancelled").map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{order.sourceChannel}</option>)}</select><label htmlFor="plate">車牌或車輛備註</label><input id="plate" placeholder="人工確認後輸入"/><button type="button" className="primary" onClick={() => { setCheckinEditing(true); switchView("checkin"); }}>綁定訂單並開始接待</button></section>}
+    {view === "visitor" && <section className="screen"><div className="section-heading"><h2>待確認來訪</h2><span>攝影機整合預留</span></div><article className="camera-event"><div className="camera" role="img" aria-label="停車場來車示意"><span className="camera-name">停車場</span><div className="car"><i/><i/></div></div></article><label htmlFor="visitor-order">對應訂單</label><select id="visitor-order" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{[...todayOrders, ...orders.filter((order) => !todayOrders.some((todayOrder) => todayOrder.id === order.id))].filter((order) => order.status !== "cancelled").map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{order.sourceChannel}</option>)}</select><label htmlFor="plate">車牌或車輛備註</label><input id="plate" placeholder="人工確認後輸入"/><button type="button" className="primary" onClick={() => { setCheckinEditing(true); switchView("checkin"); }}>綁定訂單並開始接待</button></section>}
 
     {view === "checkin" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length > 0 && <label className="today-checkin-picker">選擇今日客人<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setCheckinEditing(false); }}>{todayOrders.map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{statusLabel[order.status] ?? order.status}</option>)}</select></label>}{!selected || selected.arrivalDate !== today || !base ? <div className="empty">今天沒有待辦入住的客人</div> : !checkinEditing ? <StaySummary order={selected} onEdit={() => setCheckinEditing(true)}/> : <form key={`${selected.id}-${selected.status}-${selected.receivedAmount}-${selected.balanceAmount}`} onSubmit={submitCheckin}><div className="booking-summary"><strong>{selected.guestName}・{selected.roomNumber ?? "未分房"}</strong><br/>{selected.sourceChannel}・{selected.adults + selected.children} 位・{selected.arrivalDate}–{selected.departureDate}<br/>總額 {money(selected.totalAmount)}・已付 {money(selected.receivedAmount)}<small>{selected.importState === "pending_review" ? "Gmail 匯入，請接待人員核對" : "已確認訂單"}</small></div>{selected.status === "checked_in" && <div className="warning">目前正在修改已入住資料；如無新的收款，尾款請保持 0。</div>}<label htmlFor="identity">身分證號／證件號碼</label><input id="identity" name="identity" type="password" placeholder={selected.identityVerified ? "證件已核對；不修改可留空" : "只保存雜湊與末四碼"} autoComplete="off"/><label className="check"><input name="identityVerified" type="checkbox" defaultChecked={Boolean(selected.identityVerified)}/> 已核對證件正本</label><div className="two-columns"><div><label>實際入住</label><input name="actualGuests" type="number" defaultValue={selected.actualGuests ?? selected.adults + selected.children} min="1"/></div><div><label>尾款方式</label><select name="paymentMethod" defaultValue={selected.paymentMethod ?? selectedPaymentMethods[0]}>{selectedPaymentMethods.map((method) => <option key={method}>{method}</option>)}</select></div></div><div className="two-columns"><div><label>已付金額</label><input value={selected.receivedAmount} readOnly/></div><div><label>本次實收尾款（無新收款填 0）</label><input name="balancePaid" defaultValue={selected.status === "checked_in" ? 0 : selected.balanceAmount} inputMode="numeric"/></div></div><div className="two-columns"><div><label>早餐時間</label><select name="breakfastTime" defaultValue={selected.breakfastTime ?? base.breakfastTimes[0]}>{base.breakfastTimes.map((time) => <option key={time}>{time}</option>)}</select></div><div><label>用餐人數</label><input name="breakfastCount" type="number" defaultValue={selected.breakfastCount ?? selected.adults + selected.children} min="0"/></div></div><label>餐點</label><select name="mealId" defaultValue={selected.mealId ?? base.meals.find((meal) => meal.isDefault)?.id}>{base.meals.map((meal) => <option key={meal.id} value={meal.id}>{meal.name}{meal.isDefault ? "（預設）" : ""}</option>)}</select><label>人數差異／飲食禁忌／接待備註</label><textarea name="notes" rows={3} defaultValue={selected.checkinNotes ?? selected.specialRequests ?? ""}/><button type="submit" className="primary">{selected.status === "checked_in" ? "儲存入住資料修改" : "確認並完成入住"}</button><button type="button" className="secondary" onClick={() => setCheckinEditing(false)}>取消編輯</button></form>}</section>}
 

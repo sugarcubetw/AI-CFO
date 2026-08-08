@@ -134,7 +134,7 @@ test("check-in and prep tabs default to Taipei today", async () => {
   const page = await read("app/page.tsx");
   assert.match(page, /timeZone: "Asia\/Taipei"/);
   assert.match(page, /function openTodayCheckin\(\)/);
-  assert.match(page, /setSelectedId\(todayOrders\[0\]\?\.id \?\? ""\)/);
+  assert.match(page, /const current = await loadTodayOrders\(\)/);
   assert.match(page, /selected\.arrivalDate !== today/);
   assert.match(page, /今日入住/);
   assert.match(page, /function openTodayPrep\(\)/);
@@ -142,4 +142,13 @@ test("check-in and prep tabs default to Taipei today", async () => {
   assert.match(page, /今日備料人數/);
   assert.match(page, /value=\{prepFrom\}/);
   assert.match(page, /value=\{prepTo\}/);
+});
+
+test("today orders load independently and order search defaults to the next seven days", async () => {
+  const page = await read("app/page.tsx");
+  assert.match(page, /function forwardWeekRange\(\)/);
+  assert.match(page, /date\.setUTCDate\(date\.getUTCDate\(\) \+ 6\)/);
+  assert.match(page, /fetch\(`\/api\/orders\?from=\$\{today\}&to=\$\{today\}`\)/);
+  assert.match(page, /Promise\.all\(\[loadTodayOrders\(\), loadOrders\(\)\]\)/);
+  assert.match(page, /今天起 7 天/);
 });
