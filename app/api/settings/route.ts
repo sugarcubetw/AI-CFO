@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLog, roomTypes, rooms, settingOptions } from "../../../db/schema";
+import { auditLog, automationJobs, roomTypes, rooms, settingOptions } from "../../../db/schema";
 import { actorId, cleanText, intValue, jsonError } from "../../../lib/server";
 
 const allowedCategories = new Set(["breakfast_time", "payment_method", "source_channel"]);
@@ -10,6 +10,7 @@ export async function GET() {
   return Response.json({
     roomTypes: await db.select().from(roomTypes).orderBy(asc(roomTypes.defaultRoomNumber)),
     options: await db.select().from(settingOptions).orderBy(asc(settingOptions.category), asc(settingOptions.sortOrder), asc(settingOptions.label)),
+    automationJobs: await db.select().from(automationJobs).orderBy(asc(automationJobs.name)),
   });
 }
 
@@ -34,6 +35,20 @@ export async function PATCH(request: Request) {
   if (!id) return jsonError("設定 id 為必填");
   const db = getDb();
   const user = await actorId();
+  if (entity === "automationJob") {
+    const [current] = await db.select().from(automationJobs).where(eq(automationJobs.id, id)).limit(1);
+    if (!current) return jsonError("找不到排程服務", 404);
+    const scheduleType = cleanText(body.scheduleType, current.scheduleType);
+    if (!["interval", "daily", "event"].includes(scheduleType)) return jsonError("執行方式無效");
+    const intervalMinutes = scheduleType === "interval" ? intValue(body.intervalMinutes, current.intervalMinutes ?? 15) : null;
+    const timeOfDay = scheduleType === "daily" ? cleanText(body.timeOfDay, current.timeOfDay ?? "06:00") : null;
+    if (scheduleType === "interval" && (intervalMinutes < 5 || intervalMinutes > 1440)) return jsonError("檢查週期需介於 5–1440 分鐘");
+    if (scheduleType === "daily" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(timeOfDay ?? "")) return jsonError("每日執行時間無效");
+    const isEnabled = body.isEnabled === undefined ? current.isEnabled : Boolean(body.isEnabled);
+    await db.update(automationJobs).set({ scheduleType, intervalMinutes, timeOfDay, isEnabled, updatedAt: new Date().toISOString() }).where(eq(automationJobs.id, id));
+    await db.insert(auditLog).values({ actorId: user, action: isEnabled ? "automation.updated" : "automation.disabled", objectType: "automation_job", objectId: id, detailRedacted: JSON.stringify({ scheduleType, intervalMinutes, timeOfDay, timezone: current.timezone }) });
+    return Response.json({ ok: true, id });
+  }
   if (entity === "roomType") {
     const [current] = await db.select().from(roomTypes).where(eq(roomTypes.id, id)).limit(1);
     if (!current) return jsonError("找不到房型", 404);

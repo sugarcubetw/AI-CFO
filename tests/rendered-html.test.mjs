@@ -92,3 +92,17 @@ test("base settings are persistent and every change is auditable", async () => {
   assert.match(settingsPage, /基礎資料設定/);
   assert.match(settingsPage, /執行記錄/);
 });
+
+test("automation schedules are configurable and audited from base settings", async () => {
+  const [schema, seed, settings, settingsPage] = await Promise.all([
+    read("db/schema.ts"), read("lib/base-data.ts"), read("app/api/settings/route.ts"), read("app/settings/page.tsx"),
+  ]);
+  assert.match(schema, /automationJobs/);
+  assert.match(seed, /gmail-order-import/);
+  assert.match(seed, /owlnest-reconcile/);
+  assert.match(settings, /automation\.updated/);
+  assert.match(settings, /intervalMinutes < 5/);
+  assert.match(settingsPage, /排程與通知服務/);
+  assert.match(settingsPage, /每日定時/);
+  assert.match(settingsPage, /事件觸發/);
+});

@@ -26,6 +26,14 @@ export const settingOptionSeed = [
   ["payment-online-card", "payment_method", "線上刷卡", "官網", 2] as const,
 ] as const;
 
+export const automationJobSeed = [
+  ["gmail-order-import", "Gmail 訂單檢查", "讀取 OwlTing／Booking 訂單通知信並匯入待確認訂單", "interval", 15, null, true],
+  ["gmail-guest-message", "Gmail 訂單留言檢查", "檢查住客留言、飲食禁忌與特殊需求通知", "interval", 15, null, true],
+  ["owlnest-reconcile", "OwlNest 訂單核對", "下載訂單列表並比對 Gmail 與人工訂單", "daily", null, "06:00", true],
+  ["prep-report", "每日備料表", "依已確認入住與早餐需求產出當日備料人數", "daily", null, "18:00", true],
+  ["line-notification", "LINE 工作群組通知", "有新訂單、異常或接待事件時即時通知", "event", null, null, true],
+] as const;
+
 export function paymentMethodsFor(channel: string) {
   return channel === "官網" ? ["現金", "轉帳", "線上刷卡"] : ["現金", "轉帳"];
 }

@@ -156,6 +156,22 @@ export const settingOptions = sqliteTable("setting_options", {
   index("idx_setting_options_category_active_sort").on(table.category, table.isActive, table.sortOrder),
 ]);
 
+export const automationJobs = sqliteTable("automation_jobs", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  scheduleType: text("schedule_type").notNull().default("interval"),
+  intervalMinutes: integer("interval_minutes"),
+  timeOfDay: text("time_of_day"),
+  timezone: text("timezone").notNull().default("Asia/Taipei"),
+  isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+  lastRunAt: text("last_run_at"),
+  lastStatus: text("last_status"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_automation_jobs_enabled_type").on(table.isEnabled, table.scheduleType),
+]);
+
 export const orderReconciliationRuns = sqliteTable("order_reconciliation_runs", {
   id: text("id").primaryKey(),
   sourceSystem: text("source_system").notNull().default("owlnest_export"),

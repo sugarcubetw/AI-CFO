@@ -1,6 +1,6 @@
 import { getDb } from "../../../db";
-import { meals, mealVersions, rooms, roomTypes, settingOptions } from "../../../db/schema";
-import { mealSeed, roomTypeSeed, settingOptionSeed } from "../../../lib/base-data";
+import { automationJobs, meals, mealVersions, rooms, roomTypes, settingOptions } from "../../../db/schema";
+import { automationJobSeed, mealSeed, roomTypeSeed, settingOptionSeed } from "../../../lib/base-data";
 
 export async function POST() {
   const db = getDb();
@@ -15,5 +15,8 @@ export async function POST() {
   for (const [id, category, label, scope, sortOrder] of settingOptionSeed) {
     await db.insert(settingOptions).values({ id, category, label, scope, sortOrder }).onConflictDoNothing();
   }
-  return Response.json({ ok: true, roomTypes: roomTypeSeed.length, meals: mealSeed.length, options: settingOptionSeed.length });
+  for (const [id, name, description, scheduleType, intervalMinutes, timeOfDay, isEnabled] of automationJobSeed) {
+    await db.insert(automationJobs).values({ id, name, description, scheduleType, intervalMinutes, timeOfDay, isEnabled }).onConflictDoNothing();
+  }
+  return Response.json({ ok: true, roomTypes: roomTypeSeed.length, meals: mealSeed.length, options: settingOptionSeed.length, automationJobs: automationJobSeed.length });
 }
