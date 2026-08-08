@@ -55,6 +55,8 @@ export default function Home() {
   const [prepFrom, setPrepFrom] = useState(today);
   const [prepTo, setPrepTo] = useState(today);
   const [manualOpen, setManualOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
   const [newMeal, setNewMeal] = useState("");
   const [reconcileContent, setReconcileContent] = useState("");
   const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null);
@@ -109,6 +111,20 @@ export default function Home() {
     const result = await response.json() as { error?: string };
     if (!response.ok) return setMessage(result.error ?? "新增失敗");
     setManualOpen(false); setMessage("已新增手動訂單"); await Promise.all([loadTodayOrders(), loadOrders()]);
+  }
+
+  async function cancelOrder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!cancelOrderId || !cancelReason.trim()) return setMessage("請填寫取消原因");
+    const response = await fetch("/api/orders", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: cancelOrderId, action: "cancel", reason: cancelReason }),
+    });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) return setMessage(result.error ?? "取消訂單失敗");
+    setCancelOrderId(""); setCancelReason(""); setMessage(`✓ 訂單 ${cancelOrderId} 已取消並保留執行記錄`);
+    await Promise.all([loadTodayOrders(), loadOrders()]);
   }
 
   async function submitCheckin(event: FormEvent<HTMLFormElement>) {
@@ -192,7 +208,7 @@ export default function Home() {
 
     {view === "today" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length === 0 && <div className="empty">今日沒有入住訂單</div>}{todayOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p></section>}
 
-    {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="status-legend"><span className="pending">待入住</span><span className="checked-in">目前入住</span><span className="cancelled">已取消</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>今天起 7 天</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">Gmail 匯入訂單會標示「待確認」，不會覆寫人工資料</p></section>}
+    {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="status-legend"><span className="pending">待入住</span><span className="checked-in">目前入住</span><span className="cancelled">已取消</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>今天起 7 天</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{cancelOrderId && <form className="manual-form cancel-form" onSubmit={cancelOrder}><h3>手動取消訂單</h3><div className="warning">取消後會從今日入住與備料排除，但訂單及操作記錄仍會保留。</div><label>訂單編號</label><input value={cancelOrderId} readOnly/><label>取消原因</label><textarea rows={2} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="例如：OwlNest 已取消但系統未自動偵測" required/><div className="action-row"><button className="danger compact" type="submit">確認取消訂單</button><button className="secondary compact" type="button" onClick={() => { setCancelOrderId(""); setCancelReason(""); }}>返回</button></div></form>}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} onCancel={() => { setCancelOrderId(order.id); setCancelReason("OwlNest 已取消但系統未自動偵測"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}<p className="privacy">Gmail 匯入訂單會標示「待確認」，不會覆寫人工資料</p></section>}
 
     {view === "visitor" && <section className="screen"><div className="section-heading"><h2>待確認來訪</h2><span>攝影機整合預留</span></div><article className="camera-event"><div className="camera" role="img" aria-label="停車場來車示意"><span className="camera-name">停車場</span><div className="car"><i/><i/></div></div></article><label htmlFor="visitor-order">對應訂單</label><select id="visitor-order" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{[...todayOrders, ...orders.filter((order) => !todayOrders.some((todayOrder) => todayOrder.id === order.id))].filter((order) => order.status !== "cancelled").map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{order.sourceChannel}</option>)}</select><label htmlFor="plate">車牌或車輛備註</label><input id="plate" placeholder="人工確認後輸入"/><button type="button" className="primary" onClick={() => { setCheckinEditing(true); switchView("checkin"); }}>綁定訂單並開始接待</button></section>}
 
@@ -204,8 +220,8 @@ export default function Home() {
   </main>;
 }
 
-function OrderCard({ order, onSelect }: { order: Order; onSelect: () => void }) {
-  return <article className={`order order-result status-${order.status}`}><div className="spread"><div><strong>{order.arrivalDate.slice(5).replace("-", "/")}・{order.guestName}</strong><p>{order.sourceChannel}・{order.actualGuests ?? order.adults + order.children} 位・{order.id}</p></div><em>{statusLabel[order.status] ?? order.status}</em></div><div className="room-line"><span>房型／房號</span>{order.roomTypeName ?? "待對應"}・<b>{order.roomNumber ?? "—"}</b></div><div className="room-line"><span>住宿日期</span>{order.arrivalDate} → {order.departureDate}</div><div className="room-line"><span>款項</span>已付 {money(order.receivedAmount)}・尾款 {money(order.balanceAmount)}</div>{order.importState === "pending_review" && <p className="review-badge">Gmail 匯入・待人工確認</p>}{order.status !== "cancelled" && <button type="button" className="secondary compact" onClick={onSelect}>{order.status === "checked_in" ? "查看入住資訊" : "開始接待"}</button>}</article>;
+function OrderCard({ order, onSelect, onCancel }: { order: Order; onSelect: () => void; onCancel?: () => void }) {
+  return <article className={`order order-result status-${order.status}`}><div className="spread"><div><strong>{order.arrivalDate.slice(5).replace("-", "/")}・{order.guestName}</strong><p>{order.sourceChannel}・{order.actualGuests ?? order.adults + order.children} 位・{order.id}</p></div><em>{statusLabel[order.status] ?? order.status}</em></div><div className="room-line"><span>房型／房號</span>{order.roomTypeName ?? "待對應"}・<b>{order.roomNumber ?? "—"}</b></div><div className="room-line"><span>住宿日期</span>{order.arrivalDate} → {order.departureDate}</div><div className="room-line"><span>款項</span>已付 {money(order.receivedAmount)}・尾款 {money(order.balanceAmount)}</div>{order.importState === "pending_review" && <p className="review-badge">Gmail 匯入・待人工確認</p>}{order.status !== "cancelled" && <button type="button" className="secondary compact" onClick={onSelect}>{order.status === "checked_in" ? "查看入住資訊" : "開始接待"}</button>}{order.status === "pending" && onCancel && <button type="button" className="danger compact" onClick={onCancel}>手動取消訂單</button>}</article>;
 }
 
 function StaySummary({ order, onEdit }: { order: Order; onEdit: () => void }) {

@@ -152,3 +152,13 @@ test("today orders load independently and order search defaults to the next seve
   assert.match(page, /Promise\.all\(\[loadTodayOrders\(\), loadOrders\(\)\]\)/);
   assert.match(page, /今天起 7 天/);
 });
+
+test("pending orders can be manually cancelled with audit history", async () => {
+  const [page, route] = await Promise.all([read("app/page.tsx"), read("app/api/orders/route.ts")]);
+  assert.match(page, /手動取消訂單/);
+  assert.match(page, /取消原因/);
+  assert.match(route, /reservation\.cancelled_manually/);
+  assert.match(route, /已入住訂單不可直接取消/);
+  assert.match(route, /db\.delete\(mealRequirements\)/);
+  assert.match(route, /eventType: "cancelled"/);
+});
