@@ -122,10 +122,10 @@ test("order status colors and post-check-in summary are wired", async () => {
   assert.match(css, /order-result\.status-checked_in/);
 });
 
-test("cross-page navigation uses deployment-safe document links", async () => {
+test("cross-page navigation uses native form submissions", async () => {
   const [page, settings] = await Promise.all([read("app/page.tsx"), read("app/settings/page.tsx")]);
   assert.doesNotMatch(page, /from ["']next\/link["']/);
   assert.doesNotMatch(settings, /from ["']next\/link["']/);
-  assert.match(page, /<a className="header-link" href="\/settings">設定<\/a>/);
-  assert.match(settings, /<a className="header-link" href="\/">返回工作台<\/a>/);
+  assert.match(page, /<form className="header-nav-form" action="\/settings" method="get">/);
+  assert.match(settings, /<form className="header-nav-form" action="\/" method="get">/);
 });

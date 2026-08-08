@@ -169,7 +169,7 @@ export default function Home() {
   function openReception(order: Order) { setSelectedId(order.id); setCheckinEditing(order.status !== "checked_in"); switchView("checkin"); }
 
   return <main className="app-shell">
-    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><a className="header-link" href="/settings">設定</a><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></div></header>
+    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><form className="header-nav-form" action="/settings" method="get"><button className="header-link" type="submit">設定</button></form><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></div></header>
     <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "prep" ? loadPrep() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
 
