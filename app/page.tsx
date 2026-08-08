@@ -2,7 +2,6 @@
 /* eslint-disable jsx-a11y/label-has-associated-control -- compact mobile forms pair labels and controls by layout */
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 type View = "today" | "orders" | "visitor" | "checkin" | "prep" | "reconcile";
 type Order = {
@@ -170,7 +169,7 @@ export default function Home() {
   function openReception(order: Order) { setSelectedId(order.id); setCheckinEditing(order.status !== "checked_in"); switchView("checkin"); }
 
   return <main className="app-shell">
-    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><Link className="header-link" href="/settings">設定</Link><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></div></header>
+    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><a className="header-link" href="/settings">設定</a><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></div></header>
     <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "prep" ? loadPrep() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
 

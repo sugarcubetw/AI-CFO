@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable jsx-a11y/label-has-associated-control -- compact settings rows pair labels and controls by layout */
+/* eslint-disable @next/next/no-html-link-for-pages -- Sites/Vinext client navigation currently fails; cross-page links require document navigation */
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 type RoomType = { id: string; displayName: string; defaultRoomNumber: string; isBookable: boolean; isActive: boolean };
 type Option = { id: string; category: string; label: string; scope: string; sortOrder: number; isActive: boolean };
@@ -77,7 +77,7 @@ export default function SettingsPage() {
   }
 
   return <main className="app-shell settings-shell">
-    <header className="app-header"><div><h1>基礎資料設定</h1><p>管理者・所有修改保留 Log</p></div><Link className="header-link" href="/">返回工作台</Link></header>
+    <header className="app-header"><div><h1>基礎資料設定</h1><p>管理者・所有修改保留 Log</p></div><a className="header-link" href="/">返回工作台</a></header>
     <nav className="settings-tabs" aria-label="設定功能"><button className={tab === "base" ? "active" : ""} onClick={() => setTab("base")}>基礎資料</button><button className={tab === "logs" ? "active" : ""} onClick={() => setTab("logs")}>執行記錄</button></nav>
     {message && <p className="notice">{message}</p>}
     {tab === "base" && <section className="screen settings-content">
