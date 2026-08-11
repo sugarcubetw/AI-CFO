@@ -31,13 +31,22 @@ function syncOwlNestOrders() {
     const result = messages.length
       ? postJson_("/api/import/gmail", { messages })
       : { received: 0, parsed: 0, import: { inserted: 0, updated: 0, duplicates: 0, errors: [] } };
+    const orderIdByMessageId = Object.fromEntries(messages.map((message) => [
+      message.id, (message.subject.match(/OBE\d+/) || ["unknown"])[0],
+    ]));
+    const problems = (result.parseErrors || []).map((problem) => ({
+      orderId: orderIdByMessageId[problem.messageId] || "unknown", reason: problem.reason || "parse_failed",
+    })).concat((result.import && result.import.errors || []).map((problem) => ({
+      orderId: problem.orderId || "unknown", reason: problem.reason || "import_failed",
+    })));
     const summary = {
       scanned: messages.length,
       parsed: result.parsed || 0,
       inserted: result.import && result.import.inserted || 0,
       updated: result.import && result.import.updated || 0,
       duplicates: result.import && result.import.duplicates || 0,
-      errors: (result.parseErrors || []).length + (result.import && result.import.errors || []).length,
+      errors: problems.length,
+      problems: problems.slice(0, 10),
       durationMs: new Date().getTime() - startedAt.getTime(),
     };
     reportRun_("success", summary);
