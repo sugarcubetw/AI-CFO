@@ -253,11 +253,14 @@ test("calendar room badges fill each day cell with legible text", async () => {
   assert.match(page, /className="calendar-event-guest"/);
 });
 
-test("calendar overflow count uses a prominent red circular badge", async () => {
+test("calendar shows every order with stable lanes and distinct overlapping colors", async () => {
   const [page, css] = await Promise.all([read("app/page.tsx"), read("app/globals.css")]);
-  assert.match(page, /dayOrders\.length > 3 && <b>＋\{dayOrders\.length - 3\}<\/b>/);
-  assert.match(css, /calendar-events b \{[^}]*display:inline-flex/);
-  assert.match(css, /calendar-events b \{[^}]*border-radius:999px/);
-  assert.match(css, /calendar-events b \{[^}]*background:#d93545/);
-  assert.match(css, /calendar-events b \{[^}]*color:#fff/);
+  assert.doesNotMatch(page, /dayOrders\.slice\(0, 3\)|dayOrders\.length > 3/);
+  assert.match(page, /buildCalendarAssignments/);
+  assert.match(page, /usedColors/);
+  assert.match(page, /gridRow: assignment\.lane \+ 1/);
+  assert.match(page, /gridTemplateRows: `repeat\(\$\{laneCount\}/);
+  assert.match(css, /calendar-event\.segment-start/);
+  assert.match(css, /calendar-event\.segment-middle/);
+  assert.match(css, /calendar-event\.segment-end/);
 });

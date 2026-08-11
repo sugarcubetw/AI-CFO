@@ -280,6 +280,7 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
   const activeMonth = date.getUTCMonth();
   const days = Array.from({ length: mode === "month" ? 42 : 7 }, (_, index) => addDays(range.from, index));
   const selectedOrders = orders.filter((order) => order.status !== "cancelled" && order.arrivalDate <= selectedDate && order.departureDate > selectedDate);
+  const calendarAssignments = buildCalendarAssignments(orders);
   const periodTitle = mode === "month"
     ? `${date.getUTCFullYear()} 年 ${date.getUTCMonth() + 1} 月`
     : `${range.from.slice(5).replace("-", "/")}－${range.to.slice(5).replace("-", "/")}`;
@@ -305,15 +306,23 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
       {days.map((day) => {
         const dayOrders = orders
           .filter((order) => order.status !== "cancelled" && order.arrivalDate <= day && order.departureDate > day)
-          .sort((left, right) => left.arrivalDate.localeCompare(right.arrivalDate) || left.id.localeCompare(right.id));
+          .sort((left, right) => (calendarAssignments.get(left.id)?.lane ?? 0) - (calendarAssignments.get(right.id)?.lane ?? 0));
         const dayDate = dateAt(day);
+        const isWeekStart = dayDate.getUTCDay() === 1;
+        const isWeekEnd = dayDate.getUTCDay() === 0;
+        const laneCount = Math.max(1, ...dayOrders.map((order) => (calendarAssignments.get(order.id)?.lane ?? 0) + 1));
         return <button type="button" role="gridcell" key={day} className={`calendar-day${day === today ? " today" : ""}${day === selectedDate ? " selected" : ""}${mode === "month" && dayDate.getUTCMonth() !== activeMonth ? " outside" : ""}`} onClick={() => onSelectDate(day)} aria-label={`${day}，${dayOrders.length} 筆訂單`}>
           <span className="calendar-number">{dayDate.getUTCDate()}</span>
-          <span className="calendar-events">{dayOrders.slice(0, 3).map((order) => {
+          <span className="calendar-events" style={{ gridTemplateRows: `repeat(${laneCount}, minmax(52px, auto))` }}>{dayOrders.map((order) => {
             const startsToday = order.arrivalDate === day;
+            const endsTomorrow = order.departureDate === addDays(day, 1);
+            const segmentStart = startsToday || isWeekStart;
+            const segmentEnd = endsTomorrow || isWeekEnd;
+            const segmentShape = segmentStart && segmentEnd ? "segment-single" : segmentStart ? "segment-start" : segmentEnd ? "segment-end" : "segment-middle";
+            const assignment = calendarAssignments.get(order.id) ?? { color: calendarColor(order.id), lane: 0 };
             const roomLabel = startsToday ? (order.roomNumber ?? "未分房") : `續住 ${order.roomNumber ?? "未分房"}`;
-            return <i className={`calendar-event stay-color-${calendarColor(order.id)}`} key={order.id} title={`${order.guestName}・${order.roomNumber ?? "未分房"}・${startsToday ? "入住" : "續住"}`}><span className="calendar-event-room">{roomLabel}</span><span className="calendar-event-guest">{order.guestName}</span></i>;
-          })}{dayOrders.length > 3 && <b>＋{dayOrders.length - 3}</b>}</span>
+            return <i className={`calendar-event stay-color-${assignment.color} ${segmentShape}`} style={{ gridRow: assignment.lane + 1 }} key={order.id} title={`${order.guestName}・${order.roomNumber ?? "未分房"}・${startsToday ? "入住" : "續住"}`}><span className="calendar-event-room">{roomLabel}</span><span className="calendar-event-guest">{order.guestName}</span></i>;
+          })}</span>
         </button>;
       })}
         </div>
@@ -332,10 +341,33 @@ function SelectedDateOrders({ selectedDate, orders, onOpenOrder }: { selectedDat
 }
 
 function calendarColor(orderId: string) {
-  const colors = ["sage", "sky", "amber", "rose", "violet", "teal", "coral"];
+  const colors = calendarColors;
   let hash = 0;
   for (const character of orderId) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
   return colors[Math.abs(hash) % colors.length];
+}
+
+const calendarColors = ["sage", "sky", "amber", "rose", "violet", "teal", "coral"] as const;
+
+function buildCalendarAssignments(orders: Order[]) {
+  const activeOrders = orders
+    .filter((order) => order.status !== "cancelled")
+    .sort((left, right) => left.arrivalDate.localeCompare(right.arrivalDate) || left.departureDate.localeCompare(right.departureDate) || left.id.localeCompare(right.id));
+  const assigned: { order: Order; color: string; lane: number }[] = [];
+  const laneEnds: string[] = [];
+  const result = new Map<string, { color: string; lane: number }>();
+
+  for (const order of activeOrders) {
+    const overlapping = assigned.filter((item) => item.order.arrivalDate < order.departureDate && order.arrivalDate < item.order.departureDate);
+    const usedColors = new Set(overlapping.map((item) => item.color));
+    const color = calendarColors.find((candidate) => !usedColors.has(candidate)) ?? calendarColor(order.id);
+    let lane = laneEnds.findIndex((departureDate) => departureDate <= order.arrivalDate);
+    if (lane < 0) lane = laneEnds.length;
+    laneEnds[lane] = order.departureDate;
+    assigned.push({ order, color, lane });
+    result.set(order.id, { color, lane });
+  }
+  return result;
 }
 
 function OrderCard({ order, onSelect, onEdit, onCancel }: { order: Order; onSelect: () => void; onEdit?: () => void; onCancel?: () => void }) {
