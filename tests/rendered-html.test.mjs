@@ -219,6 +219,7 @@ test("calendar order queries use a tagged read cache with direct-query fallback"
 
 test("mobile landscape automatically focuses the selected week or month", async () => {
   const [page, css] = await Promise.all([read("app/page.tsx"), read("app/globals.css")]);
+  const calendarView = page.slice(page.indexOf("function CalendarView"), page.indexOf("function SelectedDateOrders"));
   assert.match(page, /calendar-active/);
   assert.match(page, /calendar-\$\{mode\}/);
   assert.match(css, /orientation:landscape/);
@@ -227,9 +228,11 @@ test("mobile landscape automatically focuses the selected week or month", async 
   assert.match(css, /calendar-active \.calendar-month \.calendar-grid/);
   assert.match(css, /calendar-active > \.app-header/);
   assert.match(page, /SelectedDateOrders/);
-  assert.match(css, /calendar-landscape-layout \{ display:flex/);
-  assert.match(css, /calendar-pane \{ flex:0 0 45%/);
-  assert.match(css, /calendar-selected-orders \{ flex:0 0 calc\(55% - 7px\)/);
-  assert.match(css, /max-height:100vh/);
-  assert.match(css, /overflow-y:auto/);
+  assert.match(page, /onClick=\{\(\) => onSelectDate\(day\)\}/);
+  assert.doesNotMatch(calendarView, /scrollIntoView|window\.scrollTo|behavior:\s*["']smooth/);
+  assert.match(css, /calendar-landscape-layout \{ display:block/);
+  assert.match(css, /calendar-pane \{ min-height:calc\(100vh - 40px\)/);
+  assert.match(css, /calendar-selected-orders \{ width:100%/);
+  assert.match(css, /calendar-screen \{ min-height:100dvh;[^}]*overflow-y:auto/);
+  assert.match(css, /font-size:12px/);
 });
