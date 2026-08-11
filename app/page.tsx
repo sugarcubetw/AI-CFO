@@ -3,7 +3,8 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-type View = "today" | "orders" | "visitor" | "checkin" | "prep" | "reconcile";
+type View = "today" | "orders" | "calendar" | "checkin" | "prep" | "reconcile";
+type CalendarMode = "week" | "month";
 type Order = {
   id: string; guestName: string; sourceChannel: string; status: string; importState: string;
   arrivalDate: string; departureDate: string; roomTypeId: string | null; roomTypeName: string | null;
@@ -41,10 +42,28 @@ const initialWeek = forwardWeekRange();
 const money = (value: number) => `NT$ ${new Intl.NumberFormat("zh-TW").format(value)}`;
 const statusLabel: Record<string, string> = { pending: "待入住", checked_in: "已入住", cancelled: "已取消" };
 
+function dateAt(value: string) { return new Date(`${value}T00:00:00Z`); }
+function dateText(value: Date) { return value.toISOString().slice(0, 10); }
+function addDays(value: string, amount: number) { const date = dateAt(value); date.setUTCDate(date.getUTCDate() + amount); return dateText(date); }
+function calendarRange(anchor: string, mode: CalendarMode) {
+  const date = dateAt(anchor);
+  if (mode === "week") {
+    const from = addDays(anchor, -date.getUTCDay());
+    return { from, to: addDays(from, 6) };
+  }
+  const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  const from = addDays(dateText(first), -first.getUTCDay());
+  return { from, to: addDays(from, 41) };
+}
+
 export default function Home() {
   const [view, setView] = useState<View>("today");
   const [base, setBase] = useState<BaseData | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [calendarOrders, setCalendarOrders] = useState<Order[]>([]);
+  const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
+  const [calendarAnchor, setCalendarAnchor] = useState(today);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(today);
   const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [fromDate, setFromDate] = useState(initialWeek[0]);
   const [toDate, setToDate] = useState(initialWeek[1]);
@@ -200,17 +219,24 @@ export default function Home() {
   function openReception(order: Order) { setSelectedId(order.id); setCheckinEditing(order.status !== "checked_in"); switchView("checkin"); }
   async function openTodayView() { await loadTodayOrders(); switchView("today"); }
   async function openTodayCheckin() { const current = await loadTodayOrders(); setSelectedId(current[0]?.id ?? ""); setCheckinEditing(false); switchView("checkin"); }
+  async function openCalendar(mode = calendarMode, anchor = calendarAnchor) {
+    const range = calendarRange(anchor, mode);
+    const response = await fetch(`/api/orders?from=${range.from}&to=${range.to}`);
+    if (!response.ok) return setMessage("讀取訂單月曆失敗");
+    setCalendarOrders(await response.json() as Order[]);
+    setCalendarMode(mode); setCalendarAnchor(anchor); setCalendarSelectedDate(anchor); switchView("calendar");
+  }
 
   return <main className="app-shell">
-    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><form className="header-nav-form" action="/settings" method="get"><button className="header-link" type="submit">設定</button></form><button type="button" className="arrival-button" onClick={() => switchView("visitor")}>來訪</button></div></header>
-    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["visitor","來訪"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "today" ? openTodayView() : key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
+    <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><form className="header-nav-form" action="/settings" method="get"><button className="header-link" type="submit">設定</button></form></div></header>
+    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["calendar","月曆"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "today" ? openTodayView() : key === "calendar" ? openCalendar() : key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
 
     {view === "today" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length === 0 && <div className="empty">今日沒有入住訂單</div>}{todayOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p></section>}
 
     {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="status-legend"><span className="pending">待入住</span><span className="checked-in">目前入住</span><span className="cancelled">已取消</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>今天起 7 天</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{cancelOrderId && <form className="manual-form cancel-form" onSubmit={cancelOrder}><h3>手動取消訂單</h3><div className="warning">取消後會從今日入住與備料排除，但訂單及操作記錄仍會保留。</div><label>訂單編號</label><input value={cancelOrderId} readOnly/><label>取消原因</label><textarea rows={2} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="例如：OwlNest 已取消但系統未自動偵測" required/><div className="action-row"><button className="danger compact" type="submit">確認取消訂單</button><button className="secondary compact" type="button" onClick={() => { setCancelOrderId(""); setCancelReason(""); }}>返回</button></div></form>}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} onCancel={() => { setCancelOrderId(order.id); setCancelReason("OwlNest 已取消但系統未自動偵測"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}<p className="privacy">Gmail 匯入訂單會標示「待確認」，不會覆寫人工資料</p></section>}
 
-    {view === "visitor" && <section className="screen"><div className="section-heading"><h2>待確認來訪</h2><span>攝影機整合預留</span></div><article className="camera-event"><div className="camera" role="img" aria-label="停車場來車示意"><span className="camera-name">停車場</span><div className="car"><i/><i/></div></div></article><label htmlFor="visitor-order">對應訂單</label><select id="visitor-order" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{[...todayOrders, ...orders.filter((order) => !todayOrders.some((todayOrder) => todayOrder.id === order.id))].filter((order) => order.status !== "cancelled").map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{order.sourceChannel}</option>)}</select><label htmlFor="plate">車牌或車輛備註</label><input id="plate" placeholder="人工確認後輸入"/><button type="button" className="primary" onClick={() => { setCheckinEditing(true); switchView("checkin"); }}>綁定訂單並開始接待</button></section>}
+    {view === "calendar" && <CalendarView orders={calendarOrders} mode={calendarMode} anchor={calendarAnchor} selectedDate={calendarSelectedDate} onSelectDate={setCalendarSelectedDate} onModeChange={(mode) => openCalendar(mode, calendarAnchor)} onMove={(direction) => { const next = calendarMode === "week" ? addDays(calendarAnchor, direction * 7) : (() => { const date = dateAt(calendarAnchor); date.setUTCMonth(date.getUTCMonth() + direction); return dateText(date); })(); openCalendar(calendarMode, next); }} onToday={() => openCalendar(calendarMode, today)} onOpenOrder={openReception}/>} 
 
     {view === "checkin" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length > 0 && <label className="today-checkin-picker">選擇今日客人<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setCheckinEditing(false); }}>{todayOrders.map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{statusLabel[order.status] ?? order.status}</option>)}</select></label>}{!selected || selected.arrivalDate !== today || !base ? <div className="empty">今天沒有待辦入住的客人</div> : !checkinEditing ? <StaySummary order={selected} onEdit={() => setCheckinEditing(true)}/> : <form key={`${selected.id}-${selected.status}-${selected.receivedAmount}-${selected.balanceAmount}`} onSubmit={submitCheckin}><div className="booking-summary"><strong>{selected.guestName}・{selected.roomNumber ?? "未分房"}</strong><br/>{selected.sourceChannel}・{selected.adults + selected.children} 位・{selected.arrivalDate}–{selected.departureDate}<br/>總額 {money(selected.totalAmount)}・已付 {money(selected.receivedAmount)}<small>{selected.importState === "pending_review" ? "Gmail 匯入，請接待人員核對" : "已確認訂單"}</small></div>{selected.status === "checked_in" && <div className="warning">目前正在修改已入住資料；如無新的收款，尾款請保持 0。</div>}<label htmlFor="identity">身分證號／證件號碼</label><input id="identity" name="identity" type="password" placeholder={selected.identityVerified ? "證件已核對；不修改可留空" : "只保存雜湊與末四碼"} autoComplete="off"/><label className="check"><input name="identityVerified" type="checkbox" defaultChecked={Boolean(selected.identityVerified)}/> 已核對證件正本</label><div className="two-columns"><div><label>實際入住</label><input name="actualGuests" type="number" defaultValue={selected.actualGuests ?? selected.adults + selected.children} min="1"/></div><div><label>尾款方式</label><select name="paymentMethod" defaultValue={selected.paymentMethod ?? selectedPaymentMethods[0]}>{selectedPaymentMethods.map((method) => <option key={method}>{method}</option>)}</select></div></div><div className="two-columns"><div><label>已付金額</label><input value={selected.receivedAmount} readOnly/></div><div><label>本次實收尾款（無新收款填 0）</label><input name="balancePaid" defaultValue={selected.status === "checked_in" ? 0 : selected.balanceAmount} inputMode="numeric"/></div></div><div className="two-columns"><div><label>早餐時間</label><select name="breakfastTime" defaultValue={selected.breakfastTime ?? base.breakfastTimes[0]}>{base.breakfastTimes.map((time) => <option key={time}>{time}</option>)}</select></div><div><label>用餐人數</label><input name="breakfastCount" type="number" defaultValue={selected.breakfastCount ?? selected.adults + selected.children} min="0"/></div></div><label>餐點</label><select name="mealId" defaultValue={selected.mealId ?? base.meals.find((meal) => meal.isDefault)?.id}>{base.meals.map((meal) => <option key={meal.id} value={meal.id}>{meal.name}{meal.isDefault ? "（預設）" : ""}</option>)}</select><label>人數差異／飲食禁忌／接待備註</label><textarea name="notes" rows={3} defaultValue={selected.checkinNotes ?? selected.specialRequests ?? ""}/><button type="submit" className="primary">{selected.status === "checked_in" ? "儲存入住資料修改" : "確認並完成入住"}</button><button type="button" className="secondary" onClick={() => setCheckinEditing(false)}>取消編輯</button></form>}</section>}
 
@@ -218,6 +244,51 @@ export default function Home() {
 
     {view === "reconcile" && <section className="screen"><div className="section-heading"><h2>OwlNest 訂單核對</h2><span>每日一次</span></div><div className="warning">OwlNest 目前沒有提供 API。請在 OwlNest「銷售概況 → 訂單列表」依入住區間下載 CSV，再在這裡匯入。系統以入住日期比對，不會把「匯出未出現」直接判定為取消。</div><a className="secondary open-owlnest" href="https://www.owlting.com/booking/admin/?p=statistics&l=zh_TW" target="_blank" rel="noreferrer">開啟 OwlNest 銷售概況</a><form className="manual-form" onSubmit={importOwlNestList}><div className="two-columns"><div><label>入住起日</label><input type="date" value={reconcileFrom} onChange={(event) => setReconcileFrom(event.target.value)} /></div><div><label>入住迄日</label><input type="date" value={reconcileTo} onChange={(event) => setReconcileTo(event.target.value)} /></div></div><label htmlFor="owlnest-file">選擇 OwlNest CSV</label><input id="owlnest-file" type="file" accept=".csv,.txt" onChange={async (event) => { const file = event.target.files?.[0]; if (file) setReconcileContent(await file.text()); }} /><label htmlFor="owlnest-content">或貼上 CSV 內容</label><textarea id="owlnest-content" rows={5} value={reconcileContent} onChange={(event) => setReconcileContent(event.target.value)} placeholder="訂單編號,訂購時間,入住日期,退房日期,..." /><button type="submit" className="primary">匯入並完成今日核對</button></form>{reconcileResult && <div className="prep-totals"><div><span>匯入</span><strong>{reconcileResult.received}</strong></div><div><span>新增</span><strong>{reconcileResult.inserted}</strong></div><div><span>差異</span><strong>{reconcileResult.changed + reconcileResult.missingFromExport}</strong></div></div>}{latestReconcile && <article className="order"><div className="spread"><strong>上次核對</strong><em>{latestReconcile.status === "completed" ? "已完成" : latestReconcile.status}</em></div><p>{latestReconcile.periodFrom} ～ {latestReconcile.periodTo}・{latestReconcile.receivedCount} 筆</p><p>相符 {latestReconcile.matchedCount}・新增 {latestReconcile.insertedCount}・欄位差異 {latestReconcile.changedCount}・未出現 {latestReconcile.missingCount}</p>{reconcileItems.filter((item) => item.action !== "matched").slice(0, 10).map((item) => <div className="summary-line" key={item.id}><span>{item.orderId}</span><strong>{item.action === "missing_from_export" ? "匯出未出現" : item.action === "changed" ? "欄位差異" : item.action === "inserted" ? "新增" : item.action}</strong></div>)}</article>}<p className="privacy">建議每日入住前更新一次；差異需由管理者確認後才調整訂單。</p></section>}
   </main>;
+}
+
+function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onModeChange, onMove, onToday, onOpenOrder }: {
+  orders: Order[]; mode: CalendarMode; anchor: string; selectedDate: string;
+  onSelectDate: (value: string) => void; onModeChange: (value: CalendarMode) => void;
+  onMove: (direction: number) => void; onToday: () => void; onOpenOrder: (order: Order) => void;
+}) {
+  const range = calendarRange(anchor, mode);
+  const date = dateAt(anchor);
+  const activeMonth = date.getUTCMonth();
+  const days = Array.from({ length: mode === "month" ? 42 : 7 }, (_, index) => addDays(range.from, index));
+  const selectedOrders = orders.filter((order) => order.arrivalDate === selectedDate);
+  const periodTitle = mode === "month"
+    ? `${date.getUTCFullYear()} 年 ${date.getUTCMonth() + 1} 月`
+    : `${range.from.slice(5).replace("-", "/")}－${range.to.slice(5).replace("-", "/")}`;
+
+  return <section className="screen calendar-screen">
+    <div className="calendar-toolbar">
+      <div className="calendar-mode" aria-label="月曆顯示方式">
+        <button type="button" className={mode === "week" ? "active" : ""} onClick={() => onModeChange("week")}>週</button>
+        <button type="button" className={mode === "month" ? "active" : ""} onClick={() => onModeChange("month")}>月</button>
+      </div>
+      <div className="calendar-period">
+        <button type="button" aria-label="上一個期間" onClick={() => onMove(-1)}>‹</button>
+        <strong>{periodTitle}</strong>
+        <button type="button" aria-label="下一個期間" onClick={() => onMove(1)}>›</button>
+      </div>
+      <button type="button" className="calendar-today" onClick={onToday}>今天</button>
+    </div>
+    <div className="status-legend calendar-legend"><span className="pending">待入住</span><span className="checked-in">已入住</span><span className="cancelled">已取消</span></div>
+    <div className="calendar-grid" role="grid" aria-label={periodTitle}>
+      {['日','一','二','三','四','五','六'].map((label) => <span className="calendar-weekday" key={label}>{label}</span>)}
+      {days.map((day) => {
+        const dayOrders = orders.filter((order) => order.arrivalDate === day);
+        const dayDate = dateAt(day);
+        return <button type="button" role="gridcell" key={day} className={`calendar-day${day === today ? " today" : ""}${day === selectedDate ? " selected" : ""}${mode === "month" && dayDate.getUTCMonth() !== activeMonth ? " outside" : ""}`} onClick={() => onSelectDate(day)} aria-label={`${day}，${dayOrders.length} 筆訂單`}>
+          <span className="calendar-number">{dayDate.getUTCDate()}</span>
+          <span className="calendar-events">{dayOrders.slice(0, 2).map((order) => <i className={`calendar-event status-${order.status}`} key={order.id}>{order.roomNumber ?? "—"} {order.guestName}</i>)}{dayOrders.length > 2 && <b>＋{dayOrders.length - 2}</b>}</span>
+        </button>;
+      })}
+    </div>
+    <div className="section-heading calendar-agenda-heading"><h2>{selectedDate.slice(5).replace("-", "/")} 入住</h2><span>{selectedOrders.length} 筆</span></div>
+    {selectedOrders.length === 0 && <div className="empty">這一天沒有入住訂單</div>}
+    {selectedOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => onOpenOrder(order)} />)}
+  </section>;
 }
 
 function OrderCard({ order, onSelect, onCancel }: { order: Order; onSelect: () => void; onCancel?: () => void }) {
