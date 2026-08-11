@@ -226,4 +226,10 @@ test("mobile landscape automatically focuses the selected week or month", async 
   assert.match(css, /calendar-active \.calendar-week \.calendar-grid/);
   assert.match(css, /calendar-active \.calendar-month \.calendar-grid/);
   assert.match(css, /calendar-active > \.app-header/);
+  assert.match(page, /SelectedDateOrders/);
+  assert.match(css, /calendar-landscape-layout \{ display:flex/);
+  assert.match(css, /calendar-pane \{ flex:0 0 45%/);
+  assert.match(css, /calendar-selected-orders \{ flex:0 0 calc\(55% - 7px\)/);
+  assert.match(css, /max-height:100vh/);
+  assert.match(css, /overflow-y:auto/);
 });
