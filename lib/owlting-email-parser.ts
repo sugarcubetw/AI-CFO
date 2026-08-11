@@ -63,6 +63,7 @@ export function parseOwltingEmail(message: GmailOrderMessage): ParseResult {
     if (roomTypeNames.length > 1) warnings.push("multiple_room_types_require_review");
     if (eventType === "cancelled" && totalAmount === 0 && balanceAmount > 0) warnings.push("cancelled_amounts_not_financial_truth");
     const specialRequests = section(message.body, "特殊需求", ["取消規定", "旅館資訊", "若對訂單", "本系統服務"]);
+    const guestCountProvided = /大人\s*\d+\s*人/.test(message.body);
     return {
       state: "parsed",
       order: {
@@ -71,6 +72,7 @@ export function parseOwltingEmail(message: GmailOrderMessage): ParseResult {
         guestName, guestContactMasked: contact, arrivalDate: dates[0], departureDate: dates[1],
         roomTypeName: roomTypeNames[0], roomTypeNames,
         adults: Math.max(1, count(message.body, "大人")), children: count(message.body, "小孩"), infants: count(message.body, "嬰兒"),
+        guestCountProvided,
         totalAmount, receivedAmount, balanceAmount,
         paymentMethod: labelValue(message.body, "支付方式") || undefined,
         paymentStatus: eventType === "cancelled" ? "cancelled" : receivedAmount > 0 ? "deposit_paid" : "pending",

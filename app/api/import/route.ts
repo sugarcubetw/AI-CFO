@@ -20,15 +20,19 @@ export async function POST(request: Request) {
       const [existing] = await db.select().from(reservations).where(eq(reservations.id, order.orderId)).limit(1);
       const roomType = roomRows.find((row) => row.sourceName === order.roomTypeName);
       const status = order.eventType === "cancelled" ? "cancelled" : "pending";
+      const preserveManual = existing?.importState === "confirmed";
+      const guestValues = !preserveManual && (!existing || order.guestCountProvided !== false) ? {
+        adults: Math.max(1, order.adults || 1), children: Math.max(0, order.children ?? 0), infants: Math.max(0, order.infants ?? 0),
+      } : {};
       const values = {
-        sourceSystem: "owlting_gmail", sourceChannel: order.sourceChannel, otaExternalId: order.otaExternalId ?? null,
+        sourceSystem: existing && order.guestCountProvided === false ? existing.sourceSystem : "owlting_gmail", sourceChannel: order.sourceChannel, otaExternalId: order.otaExternalId ?? null,
         eventType: order.eventType, status, guestName: order.guestName || "待確認", guestContactMasked: order.guestContactMasked ?? null,
         arrivalDate: order.arrivalDate, departureDate: order.departureDate, roomTypeId: roomType?.id ?? null,
-        roomNumber: roomType?.defaultRoomNumber ?? null, adults: Math.max(1, order.adults || 1), children: Math.max(0, order.children ?? 0), infants: Math.max(0, order.infants ?? 0),
+        roomNumber: roomType?.defaultRoomNumber ?? null, ...guestValues,
         totalAmount: Math.round(order.totalAmount || 0), receivedAmount: Math.round(order.receivedAmount || 0), balanceAmount: Math.round(order.balanceAmount || 0),
         paymentMethod: order.paymentMethod ?? null, paymentStatus: order.paymentStatus ?? "pending",
-        specialRequests: [order.specialRequests, order.parseWarnings?.length ? `系統警示：${order.parseWarnings.join(",")}` : null].filter(Boolean).join("\n") || null,
-        importState: "pending_review", sourceMessageId: order.messageId, updatedAt: new Date().toISOString(),
+        specialRequests: preserveManual ? existing.specialRequests : [order.specialRequests, order.parseWarnings?.length ? `系統警示：${order.parseWarnings.join(",")}` : null].filter(Boolean).join("\n") || null,
+        importState: preserveManual ? "confirmed" : "pending_review", sourceMessageId: order.messageId, updatedAt: new Date().toISOString(),
       };
       if (existing) { await db.update(reservations).set(values).where(eq(reservations.id, order.orderId)); result.updated += 1; }
       else { await db.insert(reservations).values({ id: order.orderId, ...values }); result.inserted += 1; }

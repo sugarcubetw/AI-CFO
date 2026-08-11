@@ -4,6 +4,7 @@ import { auditLog, orderReconciliationItems, orderReconciliationRuns, reservatio
 import { parseOwlNestOrderList, OwlNestOrderListRow } from "../../../../lib/owlting-order-list-parser";
 import { actorId, cleanText, isIsoDate, jsonError } from "../../../../lib/server";
 import { invalidateHomePageCache } from "../../../../lib/home-page-cache";
+import { estimatedGuestCount } from "../../../../lib/guest-count";
 
 type ReconcilePayload = {
   content?: string;
@@ -74,7 +75,10 @@ export async function POST(request: Request) {
       await db.insert(reservations).values({
         id: row.orderId, sourceSystem: "owlnest_export", sourceChannel: row.sourceChannel, otaExternalId: row.otaExternalId,
         eventType: "reconciled", status: "pending", guestName: row.guestName, arrivalDate: row.arrivalDate, departureDate: row.departureDate,
-        roomTypeId: roomType?.id ?? null, roomNumber: roomType?.defaultRoomNumber ?? row.roomNumber, adults: 1,
+        roomTypeId: roomType?.id ?? null, roomNumber: roomType?.defaultRoomNumber ?? row.roomNumber,
+        adults: row.roomNumbers.length > 1
+          ? row.roomNumbers.reduce((total, number) => total + estimatedGuestCount(number), 0)
+          : estimatedGuestCount(roomType?.defaultRoomNumber ?? row.roomNumber),
         totalAmount: row.totalAmount, receivedAmount: row.receivedAmount, balanceAmount: row.balanceAmount,
         paymentMethod: row.paymentMethod, paymentStatus: row.paymentStatus ?? (row.receivedAmount > 0 ? "deposit_paid" : "pending"),
         importState: "pending_review",

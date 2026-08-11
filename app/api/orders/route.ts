@@ -43,12 +43,28 @@ export async function PATCH(request: Request) {
   const id = cleanText(body.id);
   const action = cleanText(body.action);
   const reason = cleanText(body.reason);
-  if (action !== "cancel") return jsonError("不支援的訂單操作");
-  if (!id || !reason) return jsonError("訂單編號與取消原因為必填");
-
   const db = getDb();
   const [reservation] = await db.select().from(reservations).where(eq(reservations.id, id)).limit(1);
   if (!reservation) return jsonError("找不到訂單", 404);
+
+  if (action === "update") {
+    if (reservation.status !== "pending") return jsonError("只有待入住訂單可由訂單頁修改", 409);
+    const adults = intValue(body.adults, -1);
+    const children = intValue(body.children, -1);
+    if (adults < 1 || children < 0) return jsonError("成人至少 1 位，兒童不可小於 0");
+    const specialRequests = cleanText(body.specialRequests) || null;
+    const user = await actorId();
+    await db.update(reservations).set({ adults, children, specialRequests, importState: "confirmed", updatedAt: new Date().toISOString() }).where(eq(reservations.id, id));
+    await db.insert(auditLog).values({
+      actorId: user, action: "reservation.updated_manually", objectType: "reservation", objectId: id,
+      detailRedacted: JSON.stringify({ before: { adults: reservation.adults, children: reservation.children }, after: { adults, children }, notesUpdated: specialRequests !== reservation.specialRequests }),
+    });
+    invalidateHomePageCache();
+    return Response.json({ ok: true, id, status: "updated", adults, children });
+  }
+
+  if (action !== "cancel") return jsonError("不支援的訂單操作");
+  if (!id || !reason) return jsonError("訂單編號與取消原因為必填");
   if (reservation.status === "checked_in") return jsonError("已入住訂單不可直接取消，請由管理者進行資料修正", 409);
   if (reservation.status === "cancelled") return Response.json({ ok: true, id, status: "already_cancelled" });
 

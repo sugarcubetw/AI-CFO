@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
 import { getDb } from "../db";
 import { mealRequirements, meals, reservations } from "../db/schema";
+import { estimatedGuestCount, hasVerifiedGuestCount } from "./guest-count";
 
 type Demand = {
   reservationId: string; mealDate: string; mealTime: string; guestCount: number;
@@ -35,10 +36,13 @@ export async function queryPrepDemand(from: string, to: string) {
   for (const reservation of pending) {
     for (const mealDate of breakfastDates(reservation.arrivalDate, reservation.departureDate)) {
       if (mealDate < from || mealDate > to || existing.has(`${reservation.id}|${mealDate}`)) continue;
+      const guestCountKnown = hasVerifiedGuestCount(reservation.sourceSystem, reservation.importState);
       demands.push({
         reservationId: reservation.id, mealDate, mealTime: "待確認",
-        guestCount: Math.max(0, reservation.adults + reservation.children), mealId: null,
-        mealName: null, roomNumber: reservation.roomNumber, demandState: "estimated",
+        guestCount: guestCountKnown
+          ? Math.max(0, reservation.adults + reservation.children)
+          : estimatedGuestCount(reservation.roomNumber, reservation.specialRequests),
+        mealId: null, mealName: null, roomNumber: reservation.roomNumber, demandState: "estimated",
       });
     }
   }

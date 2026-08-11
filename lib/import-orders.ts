@@ -14,6 +14,7 @@ export type ImportedOrder = {
   adults: number;
   children?: number;
   infants?: number;
+  guestCountProvided?: boolean;
   totalAmount: number;
   receivedAmount: number;
   balanceAmount: number;
@@ -47,6 +48,7 @@ export function redactImport(input: ImportedOrder) {
     departureDate: input.departureDate,
     roomTypeName: input.roomTypeName,
     adults: input.adults,
+    guestCountProvided: input.guestCountProvided,
     eventType: input.eventType,
     amounts: { total: input.totalAmount, received: input.receivedAmount, balance: input.balanceAmount },
   });

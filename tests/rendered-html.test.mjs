@@ -181,3 +181,19 @@ test("pending orders can be manually cancelled with audit history", async () => 
   assert.match(route, /db\.delete\(mealRequirements\)/);
   assert.match(route, /eventType: "cancelled"/);
 });
+
+test("future orders support manual guest and message edits and room-capacity estimates", async () => {
+  const [page, orders, guestCount, prep, reconcile] = await Promise.all([
+    read("app/page.tsx"), read("app/api/orders/route.ts"), read("lib/guest-count.ts"),
+    read("lib/prep-query.ts"), read("app/api/reconcile/owlting/route.ts"),
+  ]);
+  assert.match(page, /手動修改訂單/);
+  assert.match(page, /房客留言／飲食禁忌／訂單備註/);
+  assert.match(page, /房客留言：/);
+  assert.match(orders, /reservation\.updated_manually/);
+  assert.match(orders, /action === "update"/);
+  assert.match(guestCount, /"204": 4/);
+  assert.match(guestCount, /"201": 2/);
+  assert.match(prep, /estimatedGuestCount/);
+  assert.match(reconcile, /row\.roomNumbers\.reduce/);
+});

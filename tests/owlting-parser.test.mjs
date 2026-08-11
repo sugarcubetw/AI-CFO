@@ -62,8 +62,15 @@ test("parses Booking order amounts, room and guests", () => {
   assert.equal(result.order.sourceChannel, "Booking");
   assert.equal(result.order.roomTypeName, "湖水綠意雙人房");
   assert.equal(result.order.adults, 2);
+  assert.equal(result.order.guestCountProvided, true);
   assert.equal(result.order.totalAmount, 7700);
   assert.equal(result.order.balanceAmount, 7700);
+});
+
+test("marks guest counts missing from an order event so prior values are preserved", () => {
+  const result = parseOwltingEmail({ id: "m-no-count", from: "owlnest@owlting.com", subject: "Booking.com 訂單修改通知 (訂單編號 OBE92210718626080601)", body: bookingBody.replace("人數\n大人 2 人,小孩 0 人,嬰兒 0 人\n", ""), emailTs: "2026-08-07T00:00:00Z" });
+  assert.equal(result.state, "parsed");
+  assert.equal(result.order.guestCountProvided, false);
 });
 
 test("parses website deposit and payment method", () => {

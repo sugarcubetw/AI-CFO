@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return jsonError(`訂單人數已變更（目前 ${reservation.adults} 成人、${reservation.children} 兒童），未執行更正`, 409);
   }
 
-  await db.update(reservations).set({ adults, children, infants, specialRequests: specialRequests || reservation.specialRequests, updatedAt: new Date().toISOString() })
+  await db.update(reservations).set({ adults, children, infants, importState: "confirmed", specialRequests: specialRequests || reservation.specialRequests, updatedAt: new Date().toISOString() })
     .where(and(eq(reservations.id, reservationId), eq(reservations.adults, expectedAdults), eq(reservations.children, expectedChildren)));
   await db.insert(auditLog).values({
     actorId: await actorId(), action: "reservation.guest_count_corrected", objectType: "reservation", objectId: reservationId,
