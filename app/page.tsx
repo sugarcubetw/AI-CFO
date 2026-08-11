@@ -307,17 +307,12 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
           .filter((order) => order.status !== "cancelled" && order.arrivalDate <= day && order.departureDate > day)
           .sort((left, right) => left.arrivalDate.localeCompare(right.arrivalDate) || left.id.localeCompare(right.id));
         const dayDate = dateAt(day);
-        const isWeekStart = dayDate.getUTCDay() === 1;
-        const isWeekEnd = dayDate.getUTCDay() === 0;
         return <button type="button" role="gridcell" key={day} className={`calendar-day${day === today ? " today" : ""}${day === selectedDate ? " selected" : ""}${mode === "month" && dayDate.getUTCMonth() !== activeMonth ? " outside" : ""}`} onClick={() => onSelectDate(day)} aria-label={`${day}，${dayOrders.length} 筆訂單`}>
           <span className="calendar-number">{dayDate.getUTCDate()}</span>
           <span className="calendar-events">{dayOrders.slice(0, 3).map((order) => {
             const startsToday = order.arrivalDate === day;
-            const endsTomorrow = order.departureDate === addDays(day, 1);
-            const segmentStart = startsToday || isWeekStart;
-            const segmentEnd = endsTomorrow || isWeekEnd;
-            const segmentShape = segmentStart && segmentEnd ? "segment-single" : segmentStart ? "segment-start" : segmentEnd ? "segment-end" : "segment-middle";
-            return <i className={`calendar-event stay-color-${calendarColor(order.id)} ${segmentShape}`} key={order.id} title={`${order.guestName}・${order.roomNumber ?? "未分房"}・${startsToday ? "入住" : "續住"}`}>{startsToday ? `${order.roomNumber ?? "—"} ${order.guestName}` : `續住 ${order.roomNumber ?? "—"}`}</i>;
+            const roomLabel = startsToday ? (order.roomNumber ?? "未分房") : `續住 ${order.roomNumber ?? "未分房"}`;
+            return <i className={`calendar-event stay-color-${calendarColor(order.id)}`} key={order.id} title={`${order.guestName}・${order.roomNumber ?? "未分房"}・${startsToday ? "入住" : "續住"}`}><span className="calendar-event-room">{roomLabel}</span><span className="calendar-event-guest">{order.guestName}</span></i>;
           })}{dayOrders.length > 3 && <b>＋{dayOrders.length - 3}</b>}</span>
         </button>;
       })}

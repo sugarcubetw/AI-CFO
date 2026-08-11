@@ -238,13 +238,17 @@ test("mobile landscape automatically focuses the selected week or month", async 
 });
 
 test("calendar room badges fill each day cell with legible text", async () => {
-  const css = await read("app/globals.css");
+  const [page, css] = await Promise.all([read("app/page.tsx"), read("app/globals.css")]);
   assert.match(css, /calendar-events \{[^}]*width:100%/);
   assert.match(css, /calendar-event \{[^}]*width:100%/);
   assert.match(css, /calendar-event \{[^}]*align-self:stretch/);
   assert.match(css, /calendar-event \{[^}]*padding:6px 8px/);
   assert.match(css, /calendar-event \{[^}]*box-sizing:border-box/);
-  assert.match(css, /calendar-event \{[^}]*font-size:13px/);
-  assert.match(css, /calendar-event \{[^}]*font-weight:600/);
-  assert.match(css, /calendar-event \{[^}]*text-overflow:ellipsis/);
+  assert.match(css, /calendar-event \{[^}]*flex-direction:column/);
+  assert.match(css, /calendar-event \{[^}]*border-radius:6px/);
+  assert.match(css, /calendar-event-room \{[^}]*font-size:14px;[^}]*font-weight:700;[^}]*line-height:1\.2/);
+  assert.match(css, /calendar-event-guest \{[^}]*font-size:13px;[^}]*font-weight:500;[^}]*line-height:1\.2/);
+  assert.match(css, /calendar-event-guest \{[^}]*word-break:break-all/);
+  assert.match(page, /className="calendar-event-room"/);
+  assert.match(page, /className="calendar-event-guest"/);
 });
