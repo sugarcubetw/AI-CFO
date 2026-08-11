@@ -13,7 +13,7 @@
 5. 在函式選單選擇 `installFifteenMinuteTrigger`，按「執行」。
 6. Google 首次會要求 Gmail 與外部連線授權；選擇接收訂單的帳號並允許。
 
-首次執行會立即同步最近 7 天的 OwlNest 訂單通知，並建立每 15 分鐘觸發器。重複執行安全：工作台以 Gmail message id 與事件雜湊排除重複。
+首次執行會搜尋最近 30 天的 OwlNest 郵件，再只匯入成立、修改及取消通知，並建立每 15 分鐘觸發器。重複執行安全：工作台以 Gmail message id 與事件雜湊排除重複。
 
 ## 驗證
 

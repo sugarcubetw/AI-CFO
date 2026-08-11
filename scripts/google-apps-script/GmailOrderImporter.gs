@@ -7,7 +7,10 @@
  */
 
 const JOB_ID = "gmail-order-import";
-const ORDER_QUERY = 'from:owlnest@owlting.com newer_than:7d {subject:"訂單成立通知" subject:"新預定通知" subject:"訂單修改通知" subject:"訂單取消通知"}';
+// Keep Gmail search deliberately broad and apply the event-subject filter in
+// code. GmailApp search parsing can behave differently from the Gmail web UI
+// when several quoted subject clauses are grouped together.
+const ORDER_QUERY = "in:anywhere from:owlnest@owlting.com newer_than:30d";
 
 function syncOwlNestOrders() {
   const startedAt = new Date();
@@ -53,6 +56,19 @@ function installFifteenMinuteTrigger() {
     .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
   ScriptApp.newTrigger("syncOwlNestOrders").timeBased().everyMinutes(15).create();
   return syncOwlNestOrders();
+}
+
+// Read-only setup diagnostic. It logs only the executing account and thread
+// counts; it never logs subjects, message bodies, guest names, or addresses.
+function diagnoseGmailAccess() {
+  const result = {
+    activeUser: Session.getActiveUser().getEmail() || "unavailable",
+    effectiveUser: Session.getEffectiveUser().getEmail() || "unavailable",
+    recentThreads: GmailApp.search("in:anywhere newer_than:30d", 0, 10).length,
+    owltingThreads: GmailApp.search("in:anywhere newer_than:365d owlting", 0, 100).length,
+  };
+  console.log(JSON.stringify(result));
+  return result;
 }
 
 function postJson_(path, payload) {
