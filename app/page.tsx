@@ -278,7 +278,7 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
   const date = dateAt(anchor);
   const activeMonth = date.getUTCMonth();
   const days = Array.from({ length: mode === "month" ? 42 : 7 }, (_, index) => addDays(range.from, index));
-  const selectedOrders = orders.filter((order) => order.arrivalDate === selectedDate);
+  const selectedOrders = orders.filter((order) => order.status !== "cancelled" && order.arrivalDate <= selectedDate && order.departureDate > selectedDate);
   const periodTitle = mode === "month"
     ? `${date.getUTCFullYear()} 年 ${date.getUTCMonth() + 1} 月`
     : `${range.from.slice(5).replace("-", "/")}－${range.to.slice(5).replace("-", "/")}`;
@@ -296,22 +296,40 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
       </div>
       <button type="button" className="calendar-today" onClick={onToday}>今天</button>
     </div>
-    <div className="status-legend calendar-legend"><span className="pending">待入住</span><span className="checked-in">已入住</span><span className="cancelled">已取消</span></div>
+    <div className="status-legend calendar-legend"><span className="pending">入住日</span><span className="checked-in">續住</span><span className="cancelled">同一房客同色</span></div>
     <div className="calendar-grid" role="grid" aria-label={periodTitle}>
       {['日','一','二','三','四','五','六'].map((label) => <span className="calendar-weekday" key={label}>{label}</span>)}
       {days.map((day) => {
-        const dayOrders = orders.filter((order) => order.arrivalDate === day);
+        const dayOrders = orders
+          .filter((order) => order.status !== "cancelled" && order.arrivalDate <= day && order.departureDate > day)
+          .sort((left, right) => left.arrivalDate.localeCompare(right.arrivalDate) || left.id.localeCompare(right.id));
         const dayDate = dateAt(day);
+        const isWeekStart = dayDate.getUTCDay() === 0;
+        const isWeekEnd = dayDate.getUTCDay() === 6;
         return <button type="button" role="gridcell" key={day} className={`calendar-day${day === today ? " today" : ""}${day === selectedDate ? " selected" : ""}${mode === "month" && dayDate.getUTCMonth() !== activeMonth ? " outside" : ""}`} onClick={() => onSelectDate(day)} aria-label={`${day}，${dayOrders.length} 筆訂單`}>
           <span className="calendar-number">{dayDate.getUTCDate()}</span>
-          <span className="calendar-events">{dayOrders.slice(0, 2).map((order) => <i className={`calendar-event status-${order.status}`} key={order.id}>{order.roomNumber ?? "—"} {order.guestName}</i>)}{dayOrders.length > 2 && <b>＋{dayOrders.length - 2}</b>}</span>
+          <span className="calendar-events">{dayOrders.slice(0, 3).map((order) => {
+            const startsToday = order.arrivalDate === day;
+            const endsTomorrow = order.departureDate === addDays(day, 1);
+            const segmentStart = startsToday || isWeekStart;
+            const segmentEnd = endsTomorrow || isWeekEnd;
+            const segmentShape = segmentStart && segmentEnd ? "segment-single" : segmentStart ? "segment-start" : segmentEnd ? "segment-end" : "segment-middle";
+            return <i className={`calendar-event stay-color-${calendarColor(order.id)} ${segmentShape}`} key={order.id} title={`${order.guestName}・${order.roomNumber ?? "未分房"}・${startsToday ? "入住" : "續住"}`}>{startsToday ? `${order.roomNumber ?? "—"} ${order.guestName}` : `續住 ${order.roomNumber ?? "—"}`}</i>;
+          })}{dayOrders.length > 3 && <b>＋{dayOrders.length - 3}</b>}</span>
         </button>;
       })}
     </div>
-    <div className="section-heading calendar-agenda-heading"><h2>{selectedDate.slice(5).replace("-", "/")} 入住</h2><span>{selectedOrders.length} 筆</span></div>
-    {selectedOrders.length === 0 && <div className="empty">這一天沒有入住訂單</div>}
-    {selectedOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => onOpenOrder(order)} />)}
+    <div className="section-heading calendar-agenda-heading"><h2>{selectedDate.slice(5).replace("-", "/")} 住宿</h2><span>{selectedOrders.length} 筆</span></div>
+    {selectedOrders.length === 0 && <div className="empty">這一天沒有住宿訂單</div>}
+    {selectedOrders.map((order) => <div className="calendar-agenda-order" key={order.id}><span className={`calendar-stay-state ${order.arrivalDate === selectedDate ? "arrival" : "continuing"}`}>{order.arrivalDate === selectedDate ? "當日入住" : "續住中"}</span><OrderCard order={order} onSelect={() => onOpenOrder(order)} /></div>)}
   </section>;
+}
+
+function calendarColor(orderId: string) {
+  const colors = ["sage", "sky", "amber", "rose", "violet", "teal", "coral"];
+  let hash = 0;
+  for (const character of orderId) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+  return colors[Math.abs(hash) % colors.length];
 }
 
 function OrderCard({ order, onSelect, onEdit, onCancel }: { order: Order; onSelect: () => void; onEdit?: () => void; onCancel?: () => void }) {
