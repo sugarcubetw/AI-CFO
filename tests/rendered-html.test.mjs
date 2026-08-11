@@ -216,3 +216,14 @@ test("calendar order queries use a tagged read cache with direct-query fallback"
   assert.match(ordersRoute, /getCalendarOrders\(from, to\)/);
   assert.match(homeCache, /revalidateTag\(CALENDAR_CACHE_TAG/);
 });
+
+test("mobile landscape automatically focuses the selected week or month", async () => {
+  const [page, css] = await Promise.all([read("app/page.tsx"), read("app/globals.css")]);
+  assert.match(page, /calendar-active/);
+  assert.match(page, /calendar-\$\{mode\}/);
+  assert.match(css, /orientation:landscape/);
+  assert.match(css, /max-height:600px/);
+  assert.match(css, /calendar-active \.calendar-week \.calendar-grid/);
+  assert.match(css, /calendar-active \.calendar-month \.calendar-grid/);
+  assert.match(css, /calendar-active > \.app-header/);
+});

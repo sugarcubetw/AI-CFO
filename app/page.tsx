@@ -251,7 +251,7 @@ export default function Home() {
     setCalendarMode(mode); setCalendarAnchor(anchor); setCalendarSelectedDate(anchor); switchView("calendar");
   }
 
-  return <main className="app-shell">
+  return <main className={`app-shell${view === "calendar" ? " calendar-active" : ""}`}>
     <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><form className="header-nav-form" action="/settings" method="get"><button className="header-link" type="submit">設定</button></form></div></header>
     <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["calendar","月曆"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "today" ? openTodayView() : key === "calendar" ? openCalendar() : key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
@@ -284,7 +284,7 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
     ? `${date.getUTCFullYear()} 年 ${date.getUTCMonth() + 1} 月`
     : `${range.from.slice(5).replace("-", "/")}－${range.to.slice(5).replace("-", "/")}`;
 
-  return <section className="screen calendar-screen">
+  return <section className={`screen calendar-screen calendar-${mode}`}>
     <div className="calendar-toolbar">
       <div className="calendar-mode" aria-label="月曆顯示方式">
         <button type="button" className={mode === "week" ? "active" : ""} onClick={() => onModeChange("week")}>週</button>

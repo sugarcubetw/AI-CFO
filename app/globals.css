@@ -189,3 +189,22 @@ input[readonly] { color:#526057; background:#edf1ed; }
 .automation-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; }
 .automation-footer small { color:#718078; font-size:10px; }
 @media (max-width:360px) { .screen { padding:12px 11px 26px; }.camera { height:155px; }.app-header { padding-inline:15px; }.calendar-screen { padding-inline:8px; }.calendar-toolbar { grid-template-columns:auto 1fr; }.calendar-today { display:none; }.calendar-day { min-height:76px; padding-inline:2px; }.calendar-event { min-height:15px; margin-inline:-2px; padding:2px; font-size:7px; }.calendar-event.segment-start,.calendar-event.segment-single { margin-left:0; }.calendar-event.segment-end,.calendar-event.segment-single { margin-right:0; }.calendar-events { display:grid; padding-left:0; }.calendar-events b { font-size:7px; } }
+@media (orientation:landscape) and (max-height:600px) {
+  .app-shell.calendar-active { max-width:none; min-height:100dvh; box-shadow:none; }
+  .app-shell.calendar-active > .app-header,
+  .app-shell.calendar-active > .tabs,
+  .app-shell.calendar-active > .notice { display:none; }
+  .calendar-active .calendar-screen { min-height:100dvh; padding:7px 9px; }
+  .calendar-active .calendar-toolbar { margin-bottom:6px; }
+  .calendar-active .calendar-legend,
+  .calendar-active .calendar-agenda-heading,
+  .calendar-active .calendar-agenda-order,
+  .calendar-active .calendar-screen > .empty { display:none; }
+  .calendar-active .calendar-grid { height:calc(100dvh - 55px); border-radius:10px; }
+  .calendar-active .calendar-week .calendar-grid { grid-template-rows:30px minmax(0,1fr); }
+  .calendar-active .calendar-month .calendar-grid { grid-template-rows:30px repeat(6,minmax(0,1fr)); }
+  .calendar-active .calendar-day { min-height:0; padding:3px 4px; }
+  .calendar-active .calendar-number { width:20px; height:20px; font-size:10px; }
+  .calendar-active .calendar-events { gap:2px; margin-top:2px; }
+  .calendar-active .calendar-event { min-height:14px; padding-block:1px; font-size:8px; }
+}
