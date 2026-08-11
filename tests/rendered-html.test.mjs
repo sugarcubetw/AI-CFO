@@ -252,3 +252,12 @@ test("calendar room badges fill each day cell with legible text", async () => {
   assert.match(page, /className="calendar-event-room"/);
   assert.match(page, /className="calendar-event-guest"/);
 });
+
+test("calendar overflow count uses a prominent red circular badge", async () => {
+  const [page, css] = await Promise.all([read("app/page.tsx"), read("app/globals.css")]);
+  assert.match(page, /dayOrders\.length > 3 && <b>＋\{dayOrders\.length - 3\}<\/b>/);
+  assert.match(css, /calendar-events b \{[^}]*display:inline-flex/);
+  assert.match(css, /calendar-events b \{[^}]*border-radius:999px/);
+  assert.match(css, /calendar-events b \{[^}]*background:#d93545/);
+  assert.match(css, /calendar-events b \{[^}]*color:#fff/);
+});
