@@ -46,14 +46,15 @@ const statusLabel: Record<string, string> = { pending: "待入住", checked_in: 
 function dateAt(value: string) { return new Date(`${value}T00:00:00Z`); }
 function dateText(value: Date) { return value.toISOString().slice(0, 10); }
 function addDays(value: string, amount: number) { const date = dateAt(value); date.setUTCDate(date.getUTCDate() + amount); return dateText(date); }
+function mondayBasedDayIndex(value: Date) { return (value.getUTCDay() + 6) % 7; }
 function calendarRange(anchor: string, mode: CalendarMode) {
   const date = dateAt(anchor);
   if (mode === "week") {
-    const from = addDays(anchor, -date.getUTCDay());
+    const from = addDays(anchor, -mondayBasedDayIndex(date));
     return { from, to: addDays(from, 6) };
   }
   const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-  const from = addDays(dateText(first), -first.getUTCDay());
+  const from = addDays(dateText(first), -mondayBasedDayIndex(first));
   return { from, to: addDays(from, 41) };
 }
 
@@ -298,14 +299,14 @@ function CalendarView({ orders, mode, anchor, selectedDate, onSelectDate, onMode
     </div>
     <div className="status-legend calendar-legend"><span className="pending">入住日</span><span className="checked-in">續住</span><span className="cancelled">同一房客同色</span></div>
     <div className="calendar-grid" role="grid" aria-label={periodTitle}>
-      {['日','一','二','三','四','五','六'].map((label) => <span className="calendar-weekday" key={label}>{label}</span>)}
+      {['一','二','三','四','五','六','日'].map((label) => <span className="calendar-weekday" key={label}>{label}</span>)}
       {days.map((day) => {
         const dayOrders = orders
           .filter((order) => order.status !== "cancelled" && order.arrivalDate <= day && order.departureDate > day)
           .sort((left, right) => left.arrivalDate.localeCompare(right.arrivalDate) || left.id.localeCompare(right.id));
         const dayDate = dateAt(day);
-        const isWeekStart = dayDate.getUTCDay() === 0;
-        const isWeekEnd = dayDate.getUTCDay() === 6;
+        const isWeekStart = dayDate.getUTCDay() === 1;
+        const isWeekEnd = dayDate.getUTCDay() === 0;
         return <button type="button" role="gridcell" key={day} className={`calendar-day${day === today ? " today" : ""}${day === selectedDate ? " selected" : ""}${mode === "month" && dayDate.getUTCMonth() !== activeMonth ? " outside" : ""}`} onClick={() => onSelectDate(day)} aria-label={`${day}，${dayOrders.length} 筆訂單`}>
           <span className="calendar-number">{dayDate.getUTCDate()}</span>
           <span className="calendar-events">{dayOrders.slice(0, 3).map((order) => {

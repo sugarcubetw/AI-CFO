@@ -197,3 +197,11 @@ test("future orders support manual guest and message edits and room-capacity est
   assert.match(prep, /estimatedGuestCount/);
   assert.match(reconcile, /row\.roomNumbers\.reduce/);
 });
+
+test("calendar uses Monday through Sunday and keeps multi-night stay segments", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /\['一','二','三','四','五','六','日'\]/);
+  assert.match(page, /mondayBasedDayIndex/);
+  assert.match(page, /order\.arrivalDate <= day && order\.departureDate > day/);
+  assert.match(page, /`續住 \$\{order\.roomNumber/);
+});
