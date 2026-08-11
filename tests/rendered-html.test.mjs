@@ -236,3 +236,15 @@ test("mobile landscape automatically focuses the selected week or month", async 
   assert.match(css, /calendar-screen \{ min-height:100dvh;[^}]*overflow-y:auto/);
   assert.match(css, /font-size:12px/);
 });
+
+test("calendar room badges fill each day cell with legible text", async () => {
+  const css = await read("app/globals.css");
+  assert.match(css, /calendar-events \{[^}]*width:100%/);
+  assert.match(css, /calendar-event \{[^}]*width:100%/);
+  assert.match(css, /calendar-event \{[^}]*align-self:stretch/);
+  assert.match(css, /calendar-event \{[^}]*padding:6px 8px/);
+  assert.match(css, /calendar-event \{[^}]*box-sizing:border-box/);
+  assert.match(css, /calendar-event \{[^}]*font-size:13px/);
+  assert.match(css, /calendar-event \{[^}]*font-weight:600/);
+  assert.match(css, /calendar-event \{[^}]*text-overflow:ellipsis/);
+});
