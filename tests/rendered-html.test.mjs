@@ -114,7 +114,7 @@ test("order status colors and post-check-in summary are wired", async () => {
   assert.match(page, /查看入住資訊/);
   assert.match(page, /checkinEditing/);
   assert.match(page, /StaySummary/);
-  assert.match(orders, /queryOrders/);
+  assert.match(orders, /getCalendarOrders/);
   assert.match(orderQuery, /receptionChecklists/);
   assert.match(orderQuery, /breakfastTime/);
   assert.match(checkin, /existingChecklist\?\.identityHash/);
@@ -204,4 +204,15 @@ test("calendar uses Monday through Sunday and keeps multi-night stay segments", 
   assert.match(page, /mondayBasedDayIndex/);
   assert.match(page, /order\.arrivalDate <= day && order\.departureDate > day/);
   assert.match(page, /`續住 \$\{order\.roomNumber/);
+});
+
+test("calendar order queries use a tagged read cache with direct-query fallback", async () => {
+  const cache = await readFile(new URL("../lib/calendar-cache.ts", import.meta.url), "utf8");
+  const ordersRoute = await readFile(new URL("../app/api/orders/route.ts", import.meta.url), "utf8");
+  const homeCache = await readFile(new URL("../lib/home-page-cache.ts", import.meta.url), "utf8");
+  assert.match(cache, /unstable_cache/);
+  assert.match(cache, /revalidate: CALENDAR_CACHE_TTL_SECONDS/);
+  assert.match(cache, /return queryOrders\(from, to\)/);
+  assert.match(ordersRoute, /getCalendarOrders\(from, to\)/);
+  assert.match(homeCache, /revalidateTag\(CALENDAR_CACHE_TAG/);
 });

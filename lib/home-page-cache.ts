@@ -4,6 +4,7 @@ import { queryOrders } from "./order-query";
 import { queryPrepDemand } from "./prep-query";
 
 export const HOME_PAGE_CACHE_TAG = "home-page";
+export const CALENDAR_CACHE_TAG = "orders-calendar";
 export const HOME_PAGE_CACHE_TTL_SECONDS = 900;
 
 export function taipeiToday(now = new Date()) {
@@ -59,4 +60,5 @@ export async function getHomePageData(date: string) {
 
 export function invalidateHomePageCache() {
   revalidateTag(HOME_PAGE_CACHE_TAG, { expire: 0 });
+  revalidateTag(CALENDAR_CACHE_TAG, { expire: 0 });
 }

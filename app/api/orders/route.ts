@@ -3,14 +3,14 @@ import { getDb } from "../../../db";
 import { auditLog, mealRequirements, reservationEvents, reservations } from "../../../db/schema";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib/server";
 import { invalidateHomePageCache } from "../../../lib/home-page-cache";
-import { queryOrders } from "../../../lib/order-query";
+import { getCalendarOrders } from "../../../lib/calendar-cache";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const from = url.searchParams.get("from") ?? "1900-01-01";
   const to = url.searchParams.get("to") ?? "2999-12-31";
   if (!isIsoDate(from) || !isIsoDate(to) || from > to) return jsonError("日期區間無效");
-  return Response.json(await queryOrders(from, to));
+  return Response.json(await getCalendarOrders(from, to));
 }
 
 export async function POST(request: Request) {
