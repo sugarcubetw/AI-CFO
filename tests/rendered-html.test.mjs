@@ -107,6 +107,20 @@ test("automation schedules are configurable and audited from base settings", asy
   assert.match(settingsPage, /事件觸發/);
 });
 
+test("Gmail order schedule has an Apps Script worker and run-status callback", async () => {
+  const [agentScript, postScript, statusRoute, guide, packageJson] = await Promise.all([
+    read("scripts/google-apps-script/GmailOrderImporter.gs"), read("scripts/post-gmail-import.mjs"),
+    read("app/api/automation-runs/route.ts"), read("docs/GMAIL_AGENT_SETUP.md"), read("package.json"),
+  ]);
+  assert.match(agentScript, /from:owlnest@owlting\.com/);
+  assert.match(agentScript, /everyMinutes\(15\)/);
+  assert.match(agentScript, /\/api\/import\/gmail/);
+  assert.match(postScript, /\/api\/import\/gmail/);
+  assert.match(statusRoute, /lastRunAt/);
+  assert.match(guide, /installFifteenMinuteTrigger/);
+  assert.match(packageJson, /gmail:post/);
+});
+
 test("order status colors and post-check-in summary are wired", async () => {
   const [page, orders, orderQuery, checkin, css] = await Promise.all([read("app/page.tsx"), read("app/api/orders/route.ts"), read("lib/order-query.ts"), read("app/api/checkin/route.ts"), read("app/globals.css")]);
   assert.match(page, /status-\$\{order\.status\}/);

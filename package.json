@@ -13,6 +13,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "p6:smoke": "node scripts/p6-import-smoke.mjs",
+    "gmail:post": "node scripts/post-gmail-import.mjs",
     "owlnest:daily": "node scripts/owlnest-daily-reconcile.mjs",
     "owlnest:login": "node scripts/owlnest-daily-reconcile.mjs --login"
   },
@@ -37,6 +38,7 @@
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "16.4.0",
+    "playwright": "^1.62.1",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
