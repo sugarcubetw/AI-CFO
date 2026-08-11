@@ -82,6 +82,14 @@ test("parses website deposit and payment method", () => {
   assert.match(result.order.specialRequests, /蛋奶素/);
 });
 
+test("imports a legacy room name for manual mapping instead of rejecting the order", () => {
+  const legacy = websiteBody.replace("晨光綠語雙人房", "小雙人房");
+  const result = parseOwltingEmail({ id: "m-legacy-room", from: "owlnest@owlting.com", subject: "新預定通知信！ ( 訂單編號: OBE99420718626080602 )", body: legacy, emailTs: "2026-08-06T16:20:59Z" });
+  assert.equal(result.state, "parsed");
+  assert.equal(result.order.roomTypeName, "小雙人房");
+  assert.ok(result.order.parseWarnings.includes("unknown_room_type_requires_review"));
+});
+
 test("cancellation status wins and suspicious amounts are warned", () => {
   const result = parseOwltingEmail({ id: "m3", from: "owlnest@owlting.com", subject: "Booking.com 訂單取消通知 (訂單編號 OBE92210718626080601)", body: bookingBody.replace("TWD 7700\n訂單款項\nTWD 7700", "TWD 7700\n訂單款項\nTWD 0"), emailTs: "2026-08-07T00:00:00Z" });
   assert.equal(result.state, "parsed");

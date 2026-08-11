@@ -59,6 +59,12 @@ test("P6 import uses event hash dedupe and cancellation precedence", async () =>
   assert.match(route, /payloadRedacted/);
 });
 
+test("unknown Gmail room names preserve any existing manual room mapping", async () => {
+  const route = await read("app/api/import/route.ts");
+  assert.match(route, /roomType\?\.id \?\? existing\?\.roomTypeId/);
+  assert.match(route, /defaultRoomNumber \?\? existing\?\.roomNumber/);
+});
+
 test("payment correction preserves an audit trail and requires exact-state confirmation", async () => {
   const route = await read("app/api/admin/payment-correction/route.ts");
   assert.match(route, /VOID_DUPLICATE_BALANCE_PAYMENT/);

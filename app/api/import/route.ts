@@ -27,8 +27,8 @@ export async function POST(request: Request) {
       const values = {
         sourceSystem: existing && order.guestCountProvided === false ? existing.sourceSystem : "owlting_gmail", sourceChannel: order.sourceChannel, otaExternalId: order.otaExternalId ?? null,
         eventType: order.eventType, status, guestName: order.guestName || "待確認", guestContactMasked: order.guestContactMasked ?? null,
-        arrivalDate: order.arrivalDate, departureDate: order.departureDate, roomTypeId: roomType?.id ?? null,
-        roomNumber: roomType?.defaultRoomNumber ?? null, ...guestValues,
+        arrivalDate: order.arrivalDate, departureDate: order.departureDate, roomTypeId: roomType?.id ?? existing?.roomTypeId ?? null,
+        roomNumber: roomType?.defaultRoomNumber ?? existing?.roomNumber ?? null, ...guestValues,
         totalAmount: Math.round(order.totalAmount || 0), receivedAmount: Math.round(order.receivedAmount || 0), balanceAmount: Math.round(order.balanceAmount || 0),
         paymentMethod: order.paymentMethod ?? null, paymentStatus: order.paymentStatus ?? "pending",
         specialRequests: preserveManual ? existing.specialRequests : [order.specialRequests, order.parseWarnings?.length ? `系統警示：${order.parseWarnings.join(",")}` : null].filter(Boolean).join("\n") || null,
