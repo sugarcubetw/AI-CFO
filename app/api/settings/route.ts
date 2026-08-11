@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { auditLog, automationJobs, roomTypes, rooms, settingOptions } from "../../../db/schema";
 import { actorId, cleanText, intValue, jsonError } from "../../../lib/server";
+import { invalidateHomePageCache } from "../../../lib/home-page-cache";
 
 const allowedCategories = new Set(["breakfast_time", "payment_method", "source_channel"]);
 
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
   const user = await actorId();
   await db.insert(settingOptions).values({ id, category, label, scope, sortOrder: intValue(body.sortOrder), isActive: true });
   await db.insert(auditLog).values({ actorId: user, action: "setting.created", objectType: category, objectId: id, detailRedacted: JSON.stringify({ label, scope }) });
+  invalidateHomePageCache();
   return Response.json({ ok: true, id }, { status: 201 });
 }
 
@@ -60,6 +62,7 @@ export async function PATCH(request: Request) {
     await db.insert(rooms).values({ number: roomNumber, roomTypeId: id, isActive: roomActive }).onConflictDoUpdate({ target: rooms.number, set: { roomTypeId: id, isActive: roomActive } });
     if (roomNumber !== current.defaultRoomNumber) await db.update(rooms).set({ isActive: false }).where(eq(rooms.number, current.defaultRoomNumber));
     await db.insert(auditLog).values({ actorId: user, action: "room_type.updated", objectType: "room_type", objectId: id, detailRedacted: JSON.stringify({ displayName, roomNumber }) });
+    invalidateHomePageCache();
     return Response.json({ ok: true, id });
   }
   const [current] = await db.select().from(settingOptions).where(eq(settingOptions.id, id)).limit(1);
@@ -69,5 +72,6 @@ export async function PATCH(request: Request) {
   const isActive = body.isActive === undefined ? current.isActive : Boolean(body.isActive);
   await db.update(settingOptions).set({ label, scope, isActive, sortOrder: body.sortOrder === undefined ? current.sortOrder : intValue(body.sortOrder), updatedAt: new Date().toISOString() }).where(eq(settingOptions.id, id));
   await db.insert(auditLog).values({ actorId: user, action: isActive ? "setting.updated" : "setting.deactivated", objectType: current.category, objectId: id, detailRedacted: JSON.stringify({ label, scope }) });
+  invalidateHomePageCache();
   return Response.json({ ok: true, id });
 }

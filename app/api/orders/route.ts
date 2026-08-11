@@ -1,32 +1,16 @@
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLog, mealRequirements, meals, receptionChecklists, reservationEvents, reservations, roomTypes } from "../../../db/schema";
+import { auditLog, mealRequirements, reservationEvents, reservations } from "../../../db/schema";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib/server";
+import { invalidateHomePageCache } from "../../../lib/home-page-cache";
+import { queryOrders } from "../../../lib/order-query";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const from = url.searchParams.get("from") ?? "1900-01-01";
   const to = url.searchParams.get("to") ?? "2999-12-31";
   if (!isIsoDate(from) || !isIsoDate(to) || from > to) return jsonError("日期區間無效");
-  const db = getDb();
-  const rows = await db.select({
-    reservation: reservations,
-    roomTypeName: roomTypes.displayName,
-    actualGuests: receptionChecklists.actualGuests,
-    identityVerified: receptionChecklists.identityVerified,
-    breakfastTime: receptionChecklists.breakfastTime,
-    breakfastCount: receptionChecklists.breakfastCount,
-    mealId: receptionChecklists.mealId,
-    mealName: meals.name,
-    checkinNotes: receptionChecklists.notes,
-    checkedInAt: receptionChecklists.completedAt,
-  })
-    .from(reservations).leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
-    .leftJoin(receptionChecklists, eq(reservations.id, receptionChecklists.reservationId))
-    .leftJoin(meals, eq(receptionChecklists.mealId, meals.id))
-    .where(and(lte(reservations.arrivalDate, to), gte(reservations.departureDate, from)))
-    .orderBy(asc(reservations.arrivalDate));
-  return Response.json(rows.map(({ reservation, ...checkin }) => ({ ...reservation, ...checkin })));
+  return Response.json(await queryOrders(from, to));
 }
 
 export async function POST(request: Request) {
@@ -50,6 +34,7 @@ export async function POST(request: Request) {
     specialRequests: cleanText(body.specialRequests) || null, importState: "confirmed",
   });
   await db.insert(auditLog).values({ actorId: await actorId(), action: "reservation.created", objectType: "reservation", objectId: id });
+  invalidateHomePageCache();
   return Response.json({ ok: true, id }, { status: 201 });
 }
 
@@ -85,5 +70,6 @@ export async function PATCH(request: Request) {
     objectId: id,
     detailRedacted: JSON.stringify({ reason, priorStatus: reservation.status }),
   });
+  invalidateHomePageCache();
   return Response.json({ ok: true, id, status: "cancelled" });
 }

@@ -108,14 +108,15 @@ test("automation schedules are configurable and audited from base settings", asy
 });
 
 test("order status colors and post-check-in summary are wired", async () => {
-  const [page, orders, checkin, css] = await Promise.all([read("app/page.tsx"), read("app/api/orders/route.ts"), read("app/api/checkin/route.ts"), read("app/globals.css")]);
+  const [page, orders, orderQuery, checkin, css] = await Promise.all([read("app/page.tsx"), read("app/api/orders/route.ts"), read("lib/order-query.ts"), read("app/api/checkin/route.ts"), read("app/globals.css")]);
   assert.match(page, /status-\$\{order\.status\}/);
   assert.match(page, /目前入住中/);
   assert.match(page, /查看入住資訊/);
   assert.match(page, /checkinEditing/);
   assert.match(page, /StaySummary/);
-  assert.match(orders, /receptionChecklists/);
-  assert.match(orders, /breakfastTime/);
+  assert.match(orders, /queryOrders/);
+  assert.match(orderQuery, /receptionChecklists/);
+  assert.match(orderQuery, /breakfastTime/);
   assert.match(checkin, /existingChecklist\?\.identityHash/);
   assert.match(checkin, /db\.delete\(mealRequirements\)/);
   assert.match(css, /order-result\.status-pending/);
@@ -145,12 +146,30 @@ test("check-in and prep tabs default to Taipei today", async () => {
 });
 
 test("today orders load independently and order search defaults to the next seven days", async () => {
-  const page = await read("app/page.tsx");
+  const [page, homeRoute, cache] = await Promise.all([read("app/page.tsx"), read("app/api/home/route.ts"), read("lib/home-page-cache.ts")]);
   assert.match(page, /function forwardWeekRange\(\)/);
   assert.match(page, /date\.setUTCDate\(date\.getUTCDate\(\) \+ 6\)/);
   assert.match(page, /fetch\(`\/api\/orders\?from=\$\{today\}&to=\$\{today\}`\)/);
-  assert.match(page, /Promise\.all\(\[loadTodayOrders\(\), loadOrders\(\)\]\)/);
+  assert.match(page, /fetch\(`\/api\/home\?date=\$\{today\}`\)/);
+  assert.match(homeRoute, /getHomePageData/);
+  assert.match(cache, /\["home-page-data"\]/);
+  assert.match(cache, /HOME_PAGE_CACHE_TTL_SECONDS = 900/);
+  assert.match(cache, /timeZone: "Asia\/Taipei"/);
   assert.match(page, /今天起 7 天/);
+});
+
+test("home cache is invalidated by every order-affecting mutation", async () => {
+  const routes = await Promise.all([
+    "app/api/orders/route.ts",
+    "app/api/checkin/route.ts",
+    "app/api/import/route.ts",
+    "app/api/reconcile/owlting/route.ts",
+    "app/api/admin/payment-correction/route.ts",
+    "app/api/admin/reservation-correction/route.ts",
+    "app/api/meals/route.ts",
+    "app/api/settings/route.ts",
+  ].map(read));
+  for (const route of routes) assert.match(route, /invalidateHomePageCache/);
 });
 
 test("pending orders can be manually cancelled with audit history", async () => {

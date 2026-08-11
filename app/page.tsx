@@ -30,6 +30,7 @@ type PrepData = {
 type ReconcileResult = { runId: string; received: number; matched: number; inserted: number; changed: number; duplicateInExport?: number; missingFromExport: number; errors: { row: number; reason: string }[]; warnings: string[] };
 type ReconcileRun = { id: string; periodFrom: string; periodTo: string; status: string; receivedCount: number; matchedCount: number; insertedCount: number; changedCount: number; missingCount: number; errorCount: number; startedAt: string } | null;
 type ReconcileItem = { id: number; orderId: string; action: string; differenceJson: string | null };
+type HomeData = { date: string; range: { from: string; to: string }; base: BaseData; todayOrders: Order[]; orders: Order[]; prep: PrepData };
 
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 function forwardWeekRange() {
@@ -107,9 +108,14 @@ export default function Home() {
     (async () => {
       try {
         await fetch("/api/bootstrap", { method: "POST" });
-        const response = await fetch("/api/base-data");
-        setBase(await response.json() as BaseData);
-        await Promise.all([loadTodayOrders(), loadOrders()]);
+        const response = await fetch(`/api/home?date=${today}`);
+        if (!response.ok) throw new Error("讀取首頁資料失敗");
+        const data = await response.json() as HomeData;
+        setBase(data.base);
+        setTodayOrders(data.todayOrders);
+        setOrders(data.orders);
+        setPrep(data.prep);
+        setSelectedId((current) => current || data.todayOrders[0]?.id || data.orders[0]?.id || "");
         setMessage("");
       } catch (error) { setMessage(error instanceof Error ? error.message : "系統初始化失敗"); }
     })();
@@ -169,7 +175,8 @@ export default function Home() {
 
   async function openTodayPrep() {
     setPrepFrom(today); setPrepTo(today);
-    await loadPrep(today, today);
+    if (prep) setView("prep");
+    else await loadPrep(today, today);
   }
 
   async function loadReconcile() {

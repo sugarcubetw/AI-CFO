@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { auditLog, reservations } from "../../../../db/schema";
 import { actorId, cleanText, intValue, jsonError } from "../../../../lib/server";
+import { invalidateHomePageCache } from "../../../../lib/home-page-cache";
 
 const CONFIRMATION = "CORRECT_RESERVATION_GUESTS";
 
@@ -34,5 +35,6 @@ export async function POST(request: Request) {
     actorId: await actorId(), action: "reservation.guest_count_corrected", objectType: "reservation", objectId: reservationId,
     detailRedacted: JSON.stringify({ reason, before: { adults: reservation.adults, children: reservation.children, infants: reservation.infants }, after: { adults, children, infants } }),
   });
+  invalidateHomePageCache();
   return Response.json({ ok: true, reservationId, adults, children, infants, breakfastEstimate: adults + children });
 }

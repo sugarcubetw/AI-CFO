@@ -3,6 +3,7 @@ import { getDb } from "../../../db";
 import { reservationEvents, reservations, roomTypes } from "../../../db/schema";
 import { eventHash, ImportedOrder, redactImport } from "../../../lib/import-orders";
 import { cleanText, isIsoDate, jsonError } from "../../../lib/server";
+import { invalidateHomePageCache } from "../../../lib/home-page-cache";
 
 export async function POST(request: Request) {
   const payload = await request.json() as { orders?: ImportedOrder[] };
@@ -36,5 +37,6 @@ export async function POST(request: Request) {
       result.errors.push({ orderId: order.orderId, reason: error instanceof Error ? error.message : "未知錯誤" });
     }
   }
+  if (result.inserted > 0 || result.updated > 0) invalidateHomePageCache();
   return Response.json(result, { status: result.errors.length === result.received ? 400 : 200 });
 }

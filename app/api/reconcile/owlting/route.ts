@@ -3,6 +3,7 @@ import { getDb } from "../../../../db";
 import { auditLog, orderReconciliationItems, orderReconciliationRuns, reservations, roomTypes } from "../../../../db/schema";
 import { parseOwlNestOrderList, OwlNestOrderListRow } from "../../../../lib/owlting-order-list-parser";
 import { actorId, cleanText, isIsoDate, jsonError } from "../../../../lib/server";
+import { invalidateHomePageCache } from "../../../../lib/home-page-cache";
 
 type ReconcilePayload = {
   content?: string;
@@ -104,5 +105,6 @@ export async function POST(request: Request) {
   });
   for (const item of itemValues) await db.insert(orderReconciliationItems).values(item);
   await db.insert(auditLog).values({ actorId: user, action: parsed.errors.length ? "owlnest.reconcile_with_errors" : "owlnest.reconciled", objectType: "reconciliation_run", objectId: runId, detailRedacted: JSON.stringify({ periodFrom, periodTo, received: parsed.rows.length, inserted: insertedCount, changed: changedCount, missing: missingRows.length, errors: parsed.errors.length }) });
+  if (insertedCount > 0) invalidateHomePageCache();
   return Response.json({ ok: true, runId, received: parsed.rows.length, matched: matchedCount, inserted: insertedCount, changed: changedCount, duplicateInExport: duplicateCount, missingFromExport: missingRows.length, errors: parsed.errors, warnings: parsed.warnings }, { status: 201 });
 }

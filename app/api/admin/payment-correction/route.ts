@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { auditLog, payments, reservations } from "../../../../db/schema";
 import { actorId, cleanText, intValue, jsonError } from "../../../../lib/server";
+import { invalidateHomePageCache } from "../../../../lib/home-page-cache";
 
 const CONFIRMATION = "VOID_DUPLICATE_BALANCE_PAYMENT";
 
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
       receivedAmountAfter: correctedReceivedAmount,
     }),
   });
+  invalidateHomePageCache();
 
   return Response.json({
     ok: true,

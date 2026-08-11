@@ -2,6 +2,7 @@ import { asc, eq, max } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { auditLog, meals, mealVersions } from "../../../db/schema";
 import { actorId, cleanText, intValue, jsonError } from "../../../lib/server";
+import { invalidateHomePageCache } from "../../../lib/home-page-cache";
 
 export async function GET() {
   return Response.json(await getDb().select().from(meals).orderBy(asc(meals.sortOrder), asc(meals.name)));
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
   await db.insert(meals).values({ id, name, description: cleanText(body.description) || null, sortOrder: intValue(body.sortOrder), isDefault: Boolean(body.isDefault), isActive: true });
   await db.insert(mealVersions).values({ mealId: id, version: 1, name, description: cleanText(body.description) || null, createdBy: user });
   await db.insert(auditLog).values({ actorId: user, action: "meal.created", objectType: "meal", objectId: id });
+  invalidateHomePageCache();
   return Response.json({ ok: true, id }, { status: 201 });
 }
 
@@ -35,5 +37,6 @@ export async function PATCH(request: Request) {
   await db.update(meals).set({ name, description, isActive, sortOrder: body.sortOrder === undefined ? current.sortOrder : intValue(body.sortOrder), updatedAt: new Date().toISOString() }).where(eq(meals.id, id));
   await db.insert(mealVersions).values({ mealId: id, version: (latest?.value ?? 0) + 1, name, description, createdBy: user });
   await db.insert(auditLog).values({ actorId: user, action: isActive ? "meal.updated" : "meal.deactivated", objectType: "meal", objectId: id });
+  invalidateHomePageCache();
   return Response.json({ ok: true, id, version: (latest?.value ?? 0) + 1 });
 }
