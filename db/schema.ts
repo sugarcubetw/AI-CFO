@@ -41,12 +41,14 @@ export const reservations = sqliteTable("reservations", {
   specialRequests: text("special_requests"),
   importState: text("import_state").notNull().default("confirmed"),
   sourceMessageId: text("source_message_id"),
+  readAt: text("read_at"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   index("idx_reservations_dates").on(table.arrivalDate, table.departureDate),
   index("idx_reservations_status").on(table.status),
   uniqueIndex("idx_reservations_source_message").on(table.sourceSystem, table.sourceMessageId),
+  index("idx_reservations_created_read").on(table.createdAt, table.readAt),
 ]);
 
 export const reservationEvents = sqliteTable("reservation_events", {

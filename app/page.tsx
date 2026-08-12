@@ -3,7 +3,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-type View = "today" | "orders" | "calendar" | "checkin" | "prep" | "reconcile";
+type View = "today" | "orders" | "calendar" | "checkin" | "prep" | "new-orders" | "reconcile";
 type CalendarMode = "week" | "month";
 type Order = {
   id: string; guestName: string; sourceChannel: string; status: string; importState: string;
@@ -31,6 +31,7 @@ type ReconcileResult = { runId: string; received: number; matched: number; inser
 type ReconcileRun = { id: string; periodFrom: string; periodTo: string; status: string; receivedCount: number; matchedCount: number; insertedCount: number; changedCount: number; missingCount: number; errorCount: number; startedAt: string } | null;
 type ReconcileItem = { id: number; orderId: string; action: string; differenceJson: string | null };
 type HomeData = { date: string; range: { from: string; to: string }; base: BaseData; todayOrders: Order[]; orders: Order[]; prep: PrepData };
+type NewOrdersData = { orders: (Order & { createdAt: string; readAt: string | null })[]; unreadCount: number };
 
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 function forwardWeekRange() {
@@ -86,6 +87,7 @@ export default function Home() {
   const [reconcileItems, setReconcileItems] = useState<ReconcileItem[]>([]);
   const [reconcileFrom, setReconcileFrom] = useState(today);
   const [reconcileTo, setReconcileTo] = useState(() => { const date = new Date(`${today}T00:00:00`); date.setUTCDate(date.getUTCDate() + 90); return date.toISOString().slice(0, 10); });
+  const [newOrders, setNewOrders] = useState<NewOrdersData>({ orders: [], unreadCount: 0 });
 
   const loadOrders = useCallback(async (from = fromDate, to = toDate) => {
     const response = await fetch(`/api/orders?from=${from}&to=${to}`);
@@ -113,6 +115,8 @@ export default function Home() {
         const response = await fetch(`/api/home?date=${today}`);
         if (!response.ok) throw new Error("讀取首頁資料失敗");
         const data = await response.json() as HomeData;
+        const newOrdersResponse = await fetch("/api/new-orders");
+        if (newOrdersResponse.ok) setNewOrders(await newOrdersResponse.json() as NewOrdersData);
         setBase(data.base);
         setTodayOrders(data.todayOrders);
         setOrders(data.orders);
@@ -201,6 +205,8 @@ export default function Home() {
     if (response.ok) { const data = await response.json() as { latest: ReconcileRun; items: ReconcileItem[] }; setLatestReconcile(data.latest); setReconcileItems(data.items ?? []); }
     setView("reconcile");
   }
+  async function loadNewOrders() { const response = await fetch("/api/new-orders"); if (!response.ok) return setMessage("讀取新訂失敗"); setNewOrders(await response.json() as NewOrdersData); setView("new-orders"); }
+  async function markNewOrderRead(id?: string) { const response = await fetch("/api/new-orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(id ? { id } : { action: "mark_all_read" }) }); if (!response.ok) return; setNewOrders((current) => ({ ...current, unreadCount: id ? Math.max(0, current.unreadCount - 1) : 0, orders: current.orders.map((order) => id && order.id === id ? { ...order, readAt: new Date().toISOString() } : id ? order : { ...order, readAt: order.readAt ?? new Date().toISOString() }) })); }
 
   async function importOwlNestList(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -253,10 +259,11 @@ export default function Home() {
 
   return <main className={`app-shell${view === "calendar" ? " calendar-active" : ""}`}>
     <header className="app-header"><div><h1>方糖營運工作台</h1><p>{today}・接待人員</p></div><div className="header-actions"><form className="header-nav-form" action="/settings" method="get"><button className="header-link" type="submit">設定</button></form></div></header>
-    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["calendar","月曆"],["checkin","入住"],["prep","備料"],["reconcile","核對"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "today" ? openTodayView() : key === "calendar" ? openCalendar() : key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "reconcile" ? loadReconcile() : switchView(key as View)}>{label}</button>)}</nav>
+    <nav className="tabs six" aria-label="接待功能">{[["today","今日"],["orders","訂單"],["calendar","月曆"],["checkin","入住"],["prep","備料"],["new-orders","新訂"]].map(([key,label]) => <button key={key} type="button" className={view === key ? "active" : ""} onClick={() => key === "today" ? openTodayView() : key === "calendar" ? openCalendar() : key === "prep" ? openTodayPrep() : key === "checkin" ? openTodayCheckin() : key === "new-orders" ? loadNewOrders() : switchView(key as View)}>{label}{key === "new-orders" && newOrders.unreadCount > 0 && <span className="unread-badge">{newOrders.unreadCount}</span>}</button>)}</nav>
     {message && <p className="notice">{message}</p>}
 
     {view === "today" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length === 0 && <div className="empty">今日沒有入住訂單</div>}{todayOrders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} />)}<p className="privacy">攝影機事件只協助接待，不自動辨識房客身分</p></section>}
+    {view === "new-orders" && <section className="screen"><div className="section-heading"><h2>新訂（近 7 天）</h2><button className="secondary" type="button" onClick={() => markNewOrderRead()}>全部標示為已讀</button></div>{newOrders.orders.length === 0 ? <div className="empty">近 7 天沒有新訂單</div> : newOrders.orders.map((order) => <article className={`order new-order-card ${order.readAt ? "is-read" : "is-unread"}`} key={order.id} onClick={() => !order.readAt && markNewOrderRead(order.id)}><div className="spread"><strong>{order.id}</strong>{!order.readAt && <em className="new-order-label">新訂單</em>}</div><p>{order.sourceChannel}・{order.guestName}・{order.roomNumber ?? "房型待確認"}</p><p>{order.arrivalDate} → {order.departureDate}・{order.displayGuestCount} 位</p><p>總額 {money(order.totalAmount)}・尾款 {money(order.balanceAmount)}</p></article>)}</section>}
 
     {view === "orders" && <section className="screen"><div className="section-heading"><h2>所有訂單</h2><span>{orders.length} 筆</span></div><div className="status-legend"><span className="pending">待入住</span><span className="checked-in">目前入住</span><span className="cancelled">已取消</span></div><div className="date-filter"><div className="two-columns"><div><label htmlFor="from-date">入住區間起日</label><input id="from-date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div><div><label htmlFor="to-date">入住區間迄日</label><input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></div><div className="action-row"><button type="button" className="week-button" onClick={() => { setFromDate(initialWeek[0]); setToDate(initialWeek[1]); }}>今天起 7 天</button><button type="button" className="week-button" onClick={() => loadOrders()}>查詢</button></div></div><button type="button" className="secondary compact" onClick={() => setManualOpen(!manualOpen)}>＋ 手動新增訂單</button>{manualOpen && base && <ManualOrderForm base={base} onSubmit={submitManual} />}{editingOrder && <OrderEditForm order={editingOrder} onSubmit={updateOrder} onCancel={() => setEditOrderId("")} />}{cancelOrderId && <form className="manual-form cancel-form" onSubmit={cancelOrder}><h3>手動取消訂單</h3><div className="warning">取消後會從今日入住與備料排除，但訂單及操作記錄仍會保留。</div><label>訂單編號</label><input value={cancelOrderId} readOnly/><label>取消原因</label><textarea rows={2} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="例如：OwlNest 已取消但系統未自動偵測" required/><div className="action-row"><button className="danger compact" type="submit">確認取消訂單</button><button className="secondary compact" type="button" onClick={() => { setCancelOrderId(""); setCancelReason(""); }}>返回</button></div></form>}{orders.length === 0 && <div className="empty">此期間沒有訂單</div>}{orders.map((order) => <OrderCard key={order.id} order={order} onSelect={() => openReception(order)} onEdit={() => { setEditOrderId(order.id); setCancelOrderId(""); window.scrollTo({ top: 0, behavior: "smooth" }); }} onCancel={() => { setCancelOrderId(order.id); setEditOrderId(""); setCancelReason("OwlNest 已取消但系統未自動偵測"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}<p className="privacy">OwlNest 列表沒有入住人數時，依房型預估；Gmail 或人工確認後會改用實際人數。</p></section>}
 
