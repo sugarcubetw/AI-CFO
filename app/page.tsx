@@ -33,6 +33,19 @@ type ReconcileItem = { id: number; orderId: string; action: string; differenceJs
 type HomeData = { date: string; range: { from: string; to: string }; base: BaseData; todayOrders: Order[]; orders: Order[]; prep: PrepData };
 type NewOrdersData = { orders: (Order & { createdAt: string; readAt: string | null })[]; unreadCount: number };
 
+const clientCachePrefix = "fangtang-reception-cache:v1:";
+function readClientCache<T>(key: string): T | null {
+  try {
+    const raw = window.localStorage.getItem(`${clientCachePrefix}${key}`);
+    return raw ? JSON.parse(raw) as T : null;
+  } catch {
+    return null;
+  }
+}
+function writeClientCache<T>(key: string, value: T) {
+  try { window.localStorage.setItem(`${clientCachePrefix}${key}`, JSON.stringify(value)); } catch { /* cache is optional */ }
+}
+
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 function forwardWeekRange() {
   const date = new Date(`${today}T00:00:00Z`);
@@ -90,18 +103,33 @@ export default function Home() {
   const [newOrders, setNewOrders] = useState<NewOrdersData>({ orders: [], unreadCount: 0 });
 
   const loadOrders = useCallback(async (from = fromDate, to = toDate) => {
+    const cacheKey = `orders:${from}:${to}`;
+    const cached = readClientCache<Order[]>(cacheKey);
+    if (cached) {
+      setOrders(cached);
+      setSelectedId((current) => current || cached[0]?.id || "");
+    }
     const response = await fetch(`/api/orders?from=${from}&to=${to}`);
     if (!response.ok) throw new Error("讀取訂單失敗");
     const data = await response.json() as Order[];
+    writeClientCache(cacheKey, data);
     setOrders(data);
     setSelectedId((current) => current || data[0]?.id || "");
     return data;
   }, [fromDate, toDate]);
 
   const loadTodayOrders = useCallback(async () => {
+    const cacheKey = `orders:${today}:${today}`;
+    const cached = readClientCache<Order[]>(cacheKey);
+    if (cached) {
+      const activeCached = cached.filter((order) => order.arrivalDate === today && order.status !== "cancelled");
+      setTodayOrders(activeCached);
+      setSelectedId((current) => current || activeCached[0]?.id || "");
+    }
     const response = await fetch(`/api/orders?from=${today}&to=${today}`);
     if (!response.ok) throw new Error("讀取今日訂單失敗");
     const data = await response.json() as Order[];
+    writeClientCache(cacheKey, data);
     const active = data.filter((order) => order.arrivalDate === today && order.status !== "cancelled");
     setTodayOrders(active);
     setSelectedId((current) => current || active[0]?.id || "");
@@ -109,14 +137,33 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const cachedHome = readClientCache<HomeData>(`home:${today}`);
+    const cachedNewOrders = readClientCache<NewOrdersData>("new-orders");
+    if (cachedHome) {
+      // Hydrate the client-only cache once after mount; this is the intentional UI hydration path.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBase(cachedHome.base);
+      setTodayOrders(cachedHome.todayOrders);
+      setOrders(cachedHome.orders);
+      setPrep(cachedHome.prep);
+      setSelectedId((current) => current || cachedHome.todayOrders[0]?.id || cachedHome.orders[0]?.id || "");
+      setMessage("已載入快取資料，背景同步中…");
+    }
+    if (cachedNewOrders) setNewOrders(cachedNewOrders);
     (async () => {
       try {
+        // Seed data is needed only for the first server load; it should not block cached UI.
         await fetch("/api/bootstrap", { method: "POST" });
         const response = await fetch(`/api/home?date=${today}`);
         if (!response.ok) throw new Error("讀取首頁資料失敗");
         const data = await response.json() as HomeData;
         const newOrdersResponse = await fetch("/api/new-orders");
-        if (newOrdersResponse.ok) setNewOrders(await newOrdersResponse.json() as NewOrdersData);
+        if (newOrdersResponse.ok) {
+          const latestNewOrders = await newOrdersResponse.json() as NewOrdersData;
+          setNewOrders(latestNewOrders);
+          writeClientCache("new-orders", latestNewOrders);
+        }
+        writeClientCache(`home:${today}`, data);
         setBase(data.base);
         setTodayOrders(data.todayOrders);
         setOrders(data.orders);
@@ -190,14 +237,15 @@ export default function Home() {
   }
 
   async function loadPrep(from = prepFrom, to = prepTo) {
+    setView("prep");
     const response = await fetch(`/api/prep?from=${from}&to=${to}`);
     setPrep(await response.json() as PrepData); setView("prep");
   }
 
   async function openTodayPrep() {
     setPrepFrom(today); setPrepTo(today);
-    if (prep) setView("prep");
-    else await loadPrep(today, today);
+    setView("prep");
+    if (!prep) void loadPrep(today, today).catch(() => setMessage("讀取備料資料失敗"));
   }
 
   async function loadReconcile() {
@@ -205,7 +253,15 @@ export default function Home() {
     if (response.ok) { const data = await response.json() as { latest: ReconcileRun; items: ReconcileItem[] }; setLatestReconcile(data.latest); setReconcileItems(data.items ?? []); }
     setView("reconcile");
   }
-  async function loadNewOrders() { const response = await fetch("/api/new-orders"); if (!response.ok) return setMessage("讀取新訂失敗"); setNewOrders(await response.json() as NewOrdersData); setView("new-orders"); }
+  function loadNewOrders() {
+    setView("new-orders");
+    void fetch("/api/new-orders").then(async (response) => {
+      if (!response.ok) throw new Error("讀取新訂失敗");
+      const latest = await response.json() as NewOrdersData;
+      setNewOrders(latest);
+      writeClientCache("new-orders", latest);
+    }).catch((error) => setMessage(error instanceof Error ? error.message : "讀取新訂失敗"));
+  }
   async function markNewOrderRead(id?: string) { const response = await fetch("/api/new-orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(id ? { id } : { action: "mark_all_read" }) }); if (!response.ok) return; setNewOrders((current) => ({ ...current, unreadCount: id ? Math.max(0, current.unreadCount - 1) : 0, orders: current.orders.map((order) => id && order.id === id ? { ...order, readAt: new Date().toISOString() } : id ? order : { ...order, readAt: order.readAt ?? new Date().toISOString() }) })); }
 
   async function importOwlNestList(event: FormEvent<HTMLFormElement>) {
@@ -247,14 +303,20 @@ export default function Home() {
 
   function switchView(next: View) { setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function openReception(order: Order) { setSelectedId(order.id); setCheckinEditing(order.status !== "checked_in"); switchView("checkin"); }
-  async function openTodayView() { await loadTodayOrders(); switchView("today"); }
-  async function openTodayCheckin() { const current = await loadTodayOrders(); setSelectedId(current[0]?.id ?? ""); setCheckinEditing(false); switchView("checkin"); }
-  async function openCalendar(mode = calendarMode, anchor = calendarAnchor) {
+  function openTodayView() { switchView("today"); void loadTodayOrders().catch((error) => setMessage(error instanceof Error ? error.message : "讀取今日訂單失敗")); }
+  function openTodayCheckin() { switchView("checkin"); setCheckinEditing(false); void loadTodayOrders().then((current) => setSelectedId(current[0]?.id ?? "")).catch((error) => setMessage(error instanceof Error ? error.message : "讀取今日訂單失敗")); }
+  function openCalendar(mode = calendarMode, anchor = calendarAnchor) {
     const range = calendarRange(anchor, mode);
-    const response = await fetch(`/api/orders?from=${range.from}&to=${range.to}`);
-    if (!response.ok) return setMessage("讀取訂單月曆失敗");
-    setCalendarOrders(await response.json() as Order[]);
+    const cacheKey = `orders:${range.from}:${range.to}`;
+    const cached = readClientCache<Order[]>(cacheKey);
+    if (cached) setCalendarOrders(cached);
     setCalendarMode(mode); setCalendarAnchor(anchor); setCalendarSelectedDate(anchor); switchView("calendar");
+    void fetch(`/api/orders?from=${range.from}&to=${range.to}`).then(async (response) => {
+      if (!response.ok) throw new Error("讀取訂單月曆失敗");
+      const latest = await response.json() as Order[];
+      writeClientCache(cacheKey, latest);
+      setCalendarOrders(latest);
+    }).catch((error) => setMessage(error instanceof Error ? error.message : "讀取訂單月曆失敗"));
   }
 
   return <main className={`app-shell${view === "calendar" ? " calendar-active" : ""}`}>
