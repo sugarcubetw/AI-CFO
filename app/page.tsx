@@ -253,7 +253,9 @@ export default function Home() {
   async function openTodayPrep() {
     setPrepFrom(today); setPrepTo(today);
     setView("prep");
-    if (!prep) void loadPrep(today, today).catch(() => setMessage("讀取備料資料失敗"));
+    if (!prep) { // await loadPrep(today, today)
+      void loadPrep(today, today).catch(() => setMessage("讀取備料資料失敗"));
+    }
   }
 
   async function loadReconcile() {
@@ -329,7 +331,7 @@ export default function Home() {
   function switchView(next: View) { setView(next); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function openReception(order: Order) { setSelectedId(order.id); setCheckinEditing(order.status !== "checked_in"); switchView("checkin"); }
   function openTodayView() { switchView("today"); void loadTodayOrders().catch((error) => setMessage(error instanceof Error ? error.message : "讀取今日訂單失敗")); }
-  function openTodayCheckin() { switchView("checkin"); setCheckinEditing(false); void loadTodayOrders().then((current) => setSelectedId(current[0]?.id ?? "")).catch((error) => setMessage(error instanceof Error ? error.message : "讀取今日訂單失敗")); }
+  async function openTodayCheckin() { switchView("checkin"); setCheckinEditing(false); try { const current = await loadTodayOrders(); setSelectedId(current[0]?.id ?? ""); } catch (error) { setMessage(error instanceof Error ? error.message : "讀取今日訂單失敗"); } }
   function openCalendar(mode = calendarMode, anchor = calendarAnchor) {
     const range = calendarRange(anchor, mode);
     const cacheKey = `orders:${range.from}:${range.to}`;
