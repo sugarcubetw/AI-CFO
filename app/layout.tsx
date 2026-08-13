@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "方糖民宿接待工作台",
   description: "方糖民宿手機接待工作台 Demo",
+  manifest: "/finance-manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

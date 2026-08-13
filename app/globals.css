@@ -76,6 +76,12 @@ input[readonly] { color:#526057; background:#edf1ed; }
 .stay-note { margin-top:11px; padding:10px; border-radius:10px; color:#526057; background:rgba(255,255,255,.72); font-size:12px; line-height:1.5; }
 .field-note { display:block; margin-top:4px; }
 .result { color:#718078; font-size:12px; }.result.done { color:#1f5b3a; font-weight:600; }
+.finance-app { width:100%; max-width:520px; min-height:100svh; margin:0 auto; padding-bottom:30px; background:#f5f7f4; }
+.finance-header { display:flex; align-items:center; justify-content:space-between; padding:22px 18px 16px; color:#fff; background:#1f5b3a; }
+.finance-header p,.finance-header h1 { margin:0; }.finance-header p { font-size:12px; opacity:.8; }.finance-header h1 { margin-top:4px; font-size:22px; }
+.online,.offline { border-radius:999px; padding:6px 9px; color:#1f5b3a; background:#dff4e5; font-size:12px; font-weight:700; }.offline { color:#8a4a00; background:#fff0c9; }
+.finance-status { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:0 8px; padding:14px 18px; background:#e7f3ea; }.finance-status strong { grid-row:span 2; font-size:28px; }.finance-status span { font-weight:700; }.finance-status small { color:#607064; }
+.finance-form,.finance-list { margin:14px; padding:16px; border:1px solid #d6ddd6; border-radius:18px; background:#fff; }.finance-form h2,.finance-list h2 { margin:0 0 10px; font-size:17px; }.finance-note { color:#6b766e; font-size:12px; line-height:1.5; }.receipt-input input { padding:9px; }.expense-row { display:grid; grid-template-columns:1fr auto; gap:4px 10px; padding:12px 0; border-top:1px solid #edf0ed; }.expense-row small,.expense-row em { color:#6b766e; font-size:11px; font-style:normal; }.expense-row b { font-size:14px; }.expense-row em { grid-column:2; justify-self:end; }.expense-row em.pending { color:#9a5b00; }.expense-row em.synced { color:#237243; }
 .date-filter { margin-bottom:12px; padding:12px; border:1px solid #d6ddd6; border-radius:15px; background:#fff; }
 .date-filter label { margin-top:0; }
 .week-button { width:100%; margin-top:10px; padding:10px; border:1px solid #aebbb1; border-radius:10px; color:#1f5b3a; background:#f4f8f5; font-weight:600; }

@@ -210,6 +210,26 @@ export const orderReconciliationItems = sqliteTable("order_reconciliation_items"
   index("idx_reconciliation_items_order").on(table.orderId),
 ]);
 
+export const financialTransactions = sqliteTable("financial_transactions", {
+  id: text("id").primaryKey(),
+  transactionDate: text("transaction_date").notNull(),
+  direction: text("direction").notNull().default("expense"),
+  category: text("category").notNull(),
+  item: text("item").notNull(),
+  amount: integer("amount").notNull(),
+  paymentMethod: text("payment_method"),
+  vendor: text("vendor"),
+  note: text("note"),
+  receiptFileName: text("receipt_file_name"),
+  source: text("source").notNull().default("mobile"),
+  syncClientId: text("sync_client_id").notNull().unique(),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_financial_transactions_date").on(table.transactionDate),
+  index("idx_financial_transactions_category").on(table.category),
+]);
+
 export const prepReports = sqliteTable("prep_reports", {
   id: text("id").primaryKey(),
   periodFrom: text("period_from").notNull(),
