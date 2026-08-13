@@ -3,7 +3,6 @@ import { getDb } from "../../../../db";
 import { auditLog, financialTransactions } from "../../../../db/schema";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../../lib/server";
 
-const categories = new Set(["人事", "房務", "食材", "公共營運", "行銷平台", "訂閱服務", "貸款", "其他"]);
 
 export async function GET() {
   const rows = await getDb().select().from(financialTransactions).orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.createdAt)).limit(100);
@@ -17,7 +16,7 @@ export async function POST(request: Request) {
   const item = cleanText(body.item);
   const amount = intValue(body.amount);
   const syncClientId = cleanText(body.syncClientId);
-  if (!isIsoDate(transactionDate) || !categories.has(category) || !item || amount <= 0 || !syncClientId) return jsonError("費用日期、分類、細項、正數金額與同步識別碼為必填");
+  if (!isIsoDate(transactionDate) || !category || !item || amount <= 0 || !syncClientId) return jsonError("費用日期、分類、細項、正數金額與同步識別碼為必填");
   const db = getDb();
   const existing = await db.select({ id: financialTransactions.id }).from(financialTransactions).where(eq(financialTransactions.syncClientId, syncClientId)).limit(1);
   if (existing.length) return Response.json({ ok: true, duplicate: true, id: existing[0].id });
