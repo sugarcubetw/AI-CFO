@@ -21,7 +21,7 @@ type BaseData = {
   paymentMethods: { id: string; label: string; scope: string; isActive: boolean }[];
 };
 type PrepData = {
-  demands: { reservationId: string; mealDate: string; mealTime: string; guestCount: number; mealName: string | null; roomNumber: string | null; demandState: "confirmed" | "estimated" | "unselected" }[];
+  demands: { reservationId: string; mealDate: string; mealTime: string; guestCount: number; mealId: string | null; mealName: string | null; roomNumber: string | null; guestName: string; arrivalDate: string; departureDate: string; demandState: "confirmed" | "estimated" | "unselected" }[];
   summary: { mealDate: string; demandState: "confirmed" | "estimated" | "unselected"; mealName: string | null; guestCount: number }[];
   totals: { confirmed: number; estimated: number; unselected: number };
   latestReport: { id: string; reportType: string; revision: number } | null;
@@ -101,6 +101,11 @@ export default function Home() {
   const [reconcileFrom, setReconcileFrom] = useState(today);
   const [reconcileTo, setReconcileTo] = useState(() => { const date = new Date(`${today}T00:00:00`); date.setUTCDate(date.getUTCDate() + 90); return date.toISOString().slice(0, 10); });
   const [newOrders, setNewOrders] = useState<NewOrdersData>({ orders: [], unreadCount: 0 });
+  const [mealSelections, setMealSelections] = useState<Record<string, string>>({});
+
+  function hydrateMealSelections(data: PrepData) {
+    setMealSelections(Object.fromEntries(data.demands.map((item) => [`${item.reservationId}|${item.mealDate}`, item.mealId ?? ""])));
+  }
 
   const loadOrders = useCallback(async (from = fromDate, to = toDate) => {
     const cacheKey = `orders:${from}:${to}`;
@@ -146,6 +151,7 @@ export default function Home() {
       setTodayOrders(cachedHome.todayOrders);
       setOrders(cachedHome.orders);
       setPrep(cachedHome.prep);
+      hydrateMealSelections(cachedHome.prep);
       setSelectedId((current) => current || cachedHome.todayOrders[0]?.id || cachedHome.orders[0]?.id || "");
       setMessage("已載入快取資料，背景同步中…");
     }
@@ -168,6 +174,7 @@ export default function Home() {
         setTodayOrders(data.todayOrders);
         setOrders(data.orders);
         setPrep(data.prep);
+        hydrateMealSelections(data.prep);
         setSelectedId((current) => current || data.todayOrders[0]?.id || data.orders[0]?.id || "");
         setMessage("");
       } catch (error) { setMessage(error instanceof Error ? error.message : "系統初始化失敗"); }
@@ -239,7 +246,8 @@ export default function Home() {
   async function loadPrep(from = prepFrom, to = prepTo) {
     setView("prep");
     const response = await fetch(`/api/prep?from=${from}&to=${to}`);
-    setPrep(await response.json() as PrepData); setView("prep");
+    const data = await response.json() as PrepData;
+    setPrep(data); hydrateMealSelections(data); setView("prep");
   }
 
   async function openTodayPrep() {
@@ -281,6 +289,23 @@ export default function Home() {
     if (!response.ok) return setMessage(result.error ?? "備料版本建立失敗");
     setMessage(`已建立${result.report?.isRevision ? "修訂" : reportType === "formal" ? "正式" : "草稿"}版本 r${result.report?.revision}，差異 ${result.differences?.length ?? 0} 項`);
     await loadPrep();
+  }
+
+  async function saveMealPlan() {
+    if (!prep) return;
+    const response = await fetch("/api/prep", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from: prepFrom, to: prepTo, items: prep.demands.map((item) => ({
+        reservationId: item.reservationId,
+        mealDate: item.mealDate,
+        mealTime: item.mealTime,
+        mealId: mealSelections[`${item.reservationId}|${item.mealDate}`] || null,
+      })) }),
+    });
+    const result = await response.json() as PrepData & { error?: string };
+    if (!response.ok) return setMessage(result.error ?? "儲存餐點安排失敗");
+    setPrep(result); hydrateMealSelections(result); setMessage("✓ 已儲存每日餐點安排");
   }
 
   async function createMeal(event: FormEvent<HTMLFormElement>) {
@@ -333,7 +358,7 @@ export default function Home() {
 
     {view === "checkin" && <section className="screen"><div className="section-heading"><h2>今日入住</h2><span>{todayOrders.length} 筆</span></div>{todayOrders.length > 0 && <label className="today-checkin-picker">選擇今日客人<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setCheckinEditing(false); }}>{todayOrders.map((order) => <option key={order.id} value={order.id}>{order.guestName}・{order.roomNumber ?? "未分房"}・{statusLabel[order.status] ?? order.status}</option>)}</select></label>}{!selected || selected.arrivalDate !== today || !base ? <div className="empty">今天沒有待辦入住的客人</div> : !checkinEditing ? <StaySummary order={selected} onEdit={() => setCheckinEditing(true)}/> : <form key={`${selected.id}-${selected.status}-${selected.receivedAmount}-${selected.balanceAmount}`} onSubmit={submitCheckin}><div className="booking-summary"><strong>{selected.guestName}・{selected.roomNumber ?? "未分房"}</strong><br/>{selected.sourceChannel}・{selected.guestCountKnown ? "" : "預估 "}{selected.displayGuestCount} 位・{selected.arrivalDate}–{selected.departureDate}<br/>總額 {money(selected.totalAmount)}・已付 {money(selected.receivedAmount)}<small>{selected.guestCountKnown ? "訂單人數已取得" : "OwlNest 未提供人數，請接待人員核對"}</small></div>{selected.status === "checked_in" && <div className="warning">目前正在修改已入住資料；如無新的收款，尾款請保持 0。</div>}<label htmlFor="identity">身分證號／證件號碼</label><input id="identity" name="identity" type="password" placeholder={selected.identityVerified ? "證件已核對；不修改可留空" : "只保存雜湊與末四碼"} autoComplete="off"/><label className="check"><input name="identityVerified" type="checkbox" defaultChecked={Boolean(selected.identityVerified)}/> 已核對證件正本</label><div className="two-columns"><div><label>實際入住</label><input name="actualGuests" type="number" defaultValue={selected.actualGuests ?? selected.displayGuestCount} min="1"/></div><div><label>尾款方式</label><select name="paymentMethod" defaultValue={selected.paymentMethod ?? selectedPaymentMethods[0]}>{selectedPaymentMethods.map((method) => <option key={method}>{method}</option>)}</select></div></div><div className="two-columns"><div><label>已付金額</label><input value={selected.receivedAmount} readOnly/></div><div><label>本次實收尾款（無新收款填 0）</label><input name="balancePaid" defaultValue={selected.status === "checked_in" ? 0 : selected.balanceAmount} inputMode="numeric"/></div></div><div className="two-columns"><div><label>早餐時間</label><select name="breakfastTime" defaultValue={selected.breakfastTime ?? base.breakfastTimes[0]}>{base.breakfastTimes.map((time) => <option key={time}>{time}</option>)}</select></div><div><label>用餐人數</label><input name="breakfastCount" type="number" defaultValue={selected.breakfastCount ?? selected.displayGuestCount} min="0"/></div></div><label>餐點</label><select name="mealId" defaultValue={selected.mealId ?? base.meals.find((meal) => meal.isDefault)?.id}>{base.meals.map((meal) => <option key={meal.id} value={meal.id}>{meal.name}{meal.isDefault ? "（預設）" : ""}</option>)}</select><label>人數差異／飲食禁忌／接待備註</label><textarea name="notes" rows={3} defaultValue={selected.checkinNotes ?? selected.specialRequests ?? ""}/><button type="submit" className="primary">{selected.status === "checked_in" ? "儲存入住資料修改" : "確認並完成入住"}</button><button type="button" className="secondary" onClick={() => setCheckinEditing(false)}>取消編輯</button></form>}</section>}
 
-    {view === "prep" && <section className="screen"><div className="section-heading"><h2>{prepFrom === today && prepTo === today ? "今日備料人數" : "備料人數"}</h2><span>{prepFrom === prepTo ? prepFrom : `${prepFrom} 至 ${prepTo}`}</span></div><div className="date-filter"><div className="two-columns"><div><label>起日</label><input type="date" value={prepFrom} onChange={(e) => setPrepFrom(e.target.value)}/></div><div><label>迄日</label><input type="date" value={prepTo} onChange={(e) => setPrepTo(e.target.value)}/></div></div><button type="button" className="week-button" onClick={() => loadPrep()}>查詢備料</button></div>{prep && <div className="prep-totals"><div><span>已確認</span><strong>{prep.totals.confirmed} 人</strong></div><div><span>預估</span><strong>{prep.totals.estimated} 人</strong></div><div><span>待選餐</span><strong>{prep.totals.unselected} 人</strong></div></div>}<div className="action-row"><button type="button" className="secondary compact" onClick={() => savePrepReport("draft")}>建立草稿</button><button type="button" className="primary compact" onClick={() => savePrepReport("formal")}>建立正式版</button></div>{prep?.latestReport && <p className="range-label">最新版本：{prep.latestReport.reportType} r{prep.latestReport.revision}</p>}{prep?.demands.length === 0 && <div className="empty">此期間尚無早餐需求</div>}{prep?.demands.map((item) => <article className="order" key={`${item.reservationId}-${item.mealDate}`}><div className="spread"><strong>{item.mealDate}・{item.mealTime}</strong><em>{item.guestCount} 人</em></div><p>{item.roomNumber ?? "未分房"}・{item.mealName ?? "餐點待確認"}</p><span className={`demand-state ${item.demandState}`}>{item.demandState === "confirmed" ? "已確認" : item.demandState === "estimated" ? "依訂單預估" : "待選餐"}</span></article>)}<h3>每日餐點人數</h3>{prep?.summary.map((item) => <div className="summary-line" key={`${item.mealDate}-${item.demandState}-${item.mealName}`}><span>{item.mealDate}・{item.mealName ?? (item.demandState === "estimated" ? "餐點待確認（預估）" : "待選餐")}</span><strong>{item.guestCount} 人</strong></div>)}<div className="warning">目前只統計人數；食材用量與列印匯出（S3-09、S3-10）暫緩，不會顯示不準確的採購量。</div><h3 className="meal-admin-title">餐點設定</h3><form className="meal-create" onSubmit={createMeal}><input aria-label="新餐點名稱" value={newMeal} onChange={(event) => setNewMeal(event.target.value)} placeholder="新增餐點名稱"/><button className="primary" type="submit">新增</button></form>{base?.meals.map((meal) => <div className="summary-line" key={meal.id}><span>{meal.name}{meal.isDefault ? "（預設）" : ""}</span><button type="button" className="inline-button" onClick={() => toggleMeal(meal.id, meal.isActive, meal.name)}>{meal.isActive ? "停用" : "啟用"}</button></div>)}</section>}
+    {view === "prep" && <section className="screen"><div className="section-heading"><h2>{prepFrom === today && prepTo === today ? "今日備料人數" : "備料人數"}</h2><span>{prepFrom === prepTo ? prepFrom : `${prepFrom} 至 ${prepTo}`}</span></div><div className="date-filter"><div className="two-columns"><div><label>起日</label><input type="date" value={prepFrom} onChange={(e) => setPrepFrom(e.target.value)}/></div><div><label>迄日</label><input type="date" value={prepTo} onChange={(e) => setPrepTo(e.target.value)}/></div></div><button type="button" className="week-button" onClick={() => loadPrep()}>查詢備料</button></div>{prep && <div className="prep-totals"><div><span>已確認</span><strong>{prep.totals.confirmed} 人</strong></div><div><span>預估</span><strong>{prep.totals.estimated} 人</strong></div><div><span>待選餐</span><strong>{prep.totals.unselected} 人</strong></div></div>}<div className="action-row"><button type="button" className="primary compact" onClick={saveMealPlan} disabled={!prep}>儲存每日餐點</button><button type="button" className="secondary compact" onClick={() => savePrepReport("draft")}>建立草稿</button><button type="button" className="primary compact" onClick={() => savePrepReport("formal")}>建立正式版</button></div>{prep?.latestReport && <p className="range-label">最新版本：{prep.latestReport.reportType} r{prep.latestReport.revision}</p>}{prep?.demands.length === 0 && <div className="empty">此期間尚無早餐需求</div>}{prep && <div className="meal-planning-list">{Array.from(new Set(prep.demands.map((item) => item.mealDate))).map((mealDate) => <div className="meal-day" key={mealDate}><div className="section-heading"><h3>{mealDate}</h3><span>{prep.demands.filter((item) => item.mealDate === mealDate).reduce((sum, item) => sum + item.guestCount, 0)} 人</span></div>{prep.demands.filter((item) => item.mealDate === mealDate).map((item) => { const key = `${item.reservationId}|${item.mealDate}`; return <article className="order meal-plan-row" key={key}><div><strong>{item.guestName}・{item.roomNumber ?? "未分房"}</strong><p>住宿 {item.arrivalDate} → {item.departureDate}・{item.guestCount} 人</p></div><select aria-label={`${item.mealDate} ${item.guestName} 餐點`} value={mealSelections[key] ?? item.mealId ?? ""} onChange={(event) => setMealSelections((current) => ({ ...current, [key]: event.target.value }))}><option value="">尚未安排</option>{base?.meals.filter((meal) => meal.isActive).map((meal) => <option key={meal.id} value={meal.id}>{meal.name}</option>)}</select></article>; })}</div>)}</div>}<h3>每日餐點人數</h3>{prep?.summary.map((item) => <div className="summary-line" key={`${item.mealDate}-${item.demandState}-${item.mealName}`}><span>{item.mealDate}・{item.mealName ?? (item.demandState === "estimated" ? "餐點待確認（預估）" : "待選餐")}</span><strong>{item.guestCount} 人</strong></div>)}<div className="warning">預先安排後，這裡會依「日期＋餐點」統計人數；入住時仍可調整實際餐點。</div><h3 className="meal-admin-title">餐點設定</h3><form className="meal-create" onSubmit={createMeal}><input aria-label="新餐點名稱" value={newMeal} onChange={(event) => setNewMeal(event.target.value)} placeholder="新增餐點名稱"/><button className="primary" type="submit">新增</button></form>{base?.meals.map((meal) => <div className="summary-line" key={meal.id}><span>{meal.name}{meal.isDefault ? "（預設）" : ""}</span><button type="button" className="inline-button" onClick={() => toggleMeal(meal.id, meal.isActive, meal.name)}>{meal.isActive ? "停用" : "啟用"}</button></div>)}</section>}
 
     {view === "reconcile" && <section className="screen"><div className="section-heading"><h2>OwlNest 訂單核對</h2><span>每日一次</span></div><div className="warning">OwlNest 目前沒有提供 API。請在 OwlNest「銷售概況 → 訂單列表」依入住區間下載 CSV，再在這裡匯入。系統以入住日期比對，不會把「匯出未出現」直接判定為取消。</div><a className="secondary open-owlnest" href="https://www.owlting.com/booking/admin/?p=statistics&l=zh_TW" target="_blank" rel="noreferrer">開啟 OwlNest 銷售概況</a><form className="manual-form" onSubmit={importOwlNestList}><div className="two-columns"><div><label>入住起日</label><input type="date" value={reconcileFrom} onChange={(event) => setReconcileFrom(event.target.value)} /></div><div><label>入住迄日</label><input type="date" value={reconcileTo} onChange={(event) => setReconcileTo(event.target.value)} /></div></div><label htmlFor="owlnest-file">選擇 OwlNest CSV</label><input id="owlnest-file" type="file" accept=".csv,.txt" onChange={async (event) => { const file = event.target.files?.[0]; if (file) setReconcileContent(await file.text()); }} /><label htmlFor="owlnest-content">或貼上 CSV 內容</label><textarea id="owlnest-content" rows={5} value={reconcileContent} onChange={(event) => setReconcileContent(event.target.value)} placeholder="訂單編號,訂購時間,入住日期,退房日期,..." /><button type="submit" className="primary">匯入並完成今日核對</button></form>{reconcileResult && <div className="prep-totals"><div><span>匯入</span><strong>{reconcileResult.received}</strong></div><div><span>新增</span><strong>{reconcileResult.inserted}</strong></div><div><span>差異</span><strong>{reconcileResult.changed + reconcileResult.missingFromExport}</strong></div></div>}{latestReconcile && <article className="order"><div className="spread"><strong>上次核對</strong><em>{latestReconcile.status === "completed" ? "已完成" : latestReconcile.status}</em></div><p>{latestReconcile.periodFrom} ～ {latestReconcile.periodTo}・{latestReconcile.receivedCount} 筆</p><p>相符 {latestReconcile.matchedCount}・新增 {latestReconcile.insertedCount}・欄位差異 {latestReconcile.changedCount}・未出現 {latestReconcile.missingCount}</p>{reconcileItems.filter((item) => item.action !== "matched").slice(0, 10).map((item) => <div className="summary-line" key={item.id}><span>{item.orderId}</span><strong>{item.action === "missing_from_export" ? "匯出未出現" : item.action === "changed" ? "欄位差異" : item.action === "inserted" ? "新增" : item.action}</strong></div>)}</article>}<p className="privacy">建議每日入住前更新一次；差異需由管理者確認後才調整訂單。</p></section>}
   </main>;

@@ -159,6 +159,14 @@ input[readonly] { color:#526057; background:#edf1ed; }
 .meal-admin-title { margin-top:22px !important; }
 .meal-create { display:grid; grid-template-columns:1fr 82px; gap:8px; margin-bottom:8px; }
 .meal-create .primary { margin:0; padding:10px; }
+.meal-planning-list { display:grid; gap:10px; margin:12px 0 18px; }
+.meal-day { padding:10px; border:1px solid #cbd8cd; border-radius:15px; background:#f1f7f2; }
+.meal-day > .section-heading { margin:0 2px 8px; }
+.meal-day > .section-heading h3 { margin:0; color:#17452e; font-size:15px; }
+.meal-plan-row { display:grid; grid-template-columns:minmax(0,1fr) 126px; gap:10px; align-items:center; margin:7px 0 0; padding:11px; }
+.meal-plan-row p { margin:4px 0 0; color:#6b766e; font-size:11px; }
+.meal-plan-row select { padding:9px 6px; }
+.primary:disabled { opacity:.55; cursor:not-allowed; }
 .inline-button { border:1px solid #b9c3bb; border-radius:8px; padding:5px 9px; color:#1f5b3a; background:#fff; font-size:11px; }
 .settings-tabs { display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid #d8ded8; background:#fff; }
 .settings-tabs button { border:0; border-bottom:3px solid transparent; padding:13px; color:#6a756d; background:#fff; font-weight:600; }

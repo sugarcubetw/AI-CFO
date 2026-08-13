@@ -6,6 +6,7 @@ import { estimatedGuestCount, hasVerifiedGuestCount } from "./guest-count";
 type Demand = {
   reservationId: string; mealDate: string; mealTime: string; guestCount: number;
   mealId: string | null; mealName: string | null; roomNumber: string | null;
+  guestName: string; arrivalDate: string; departureDate: string;
   demandState: "confirmed" | "estimated" | "unselected";
 };
 
@@ -23,6 +24,7 @@ export async function queryPrepDemand(from: string, to: string) {
     reservationId: mealRequirements.reservationId, mealDate: mealRequirements.mealDate,
     mealTime: mealRequirements.mealTime, guestCount: mealRequirements.guestCount,
     mealId: mealRequirements.mealId, mealName: meals.name, roomNumber: reservations.roomNumber,
+    guestName: reservations.guestName, arrivalDate: reservations.arrivalDate, departureDate: reservations.departureDate,
   }).from(mealRequirements)
     .leftJoin(meals, eq(mealRequirements.mealId, meals.id))
     .leftJoin(reservations, eq(mealRequirements.reservationId, reservations.id))
@@ -42,7 +44,9 @@ export async function queryPrepDemand(from: string, to: string) {
         guestCount: guestCountKnown
           ? Math.max(0, reservation.adults + reservation.children)
           : estimatedGuestCount(reservation.roomNumber, reservation.specialRequests),
-        mealId: null, mealName: null, roomNumber: reservation.roomNumber, demandState: "estimated",
+        mealId: null, mealName: null, roomNumber: reservation.roomNumber,
+        guestName: reservation.guestName, arrivalDate: reservation.arrivalDate, departureDate: reservation.departureDate,
+        demandState: "estimated",
       });
     }
   }
