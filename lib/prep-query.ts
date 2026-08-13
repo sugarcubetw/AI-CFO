@@ -25,13 +25,21 @@ export async function queryPrepDemand(from: string, to: string) {
     mealTime: mealRequirements.mealTime, guestCount: mealRequirements.guestCount,
     mealId: mealRequirements.mealId, mealName: meals.name, roomNumber: reservations.roomNumber,
     guestName: reservations.guestName, arrivalDate: reservations.arrivalDate, departureDate: reservations.departureDate,
+    status: reservations.status, sourceSystem: reservations.sourceSystem, importState: reservations.importState,
+    adults: reservations.adults, children: reservations.children, specialRequests: reservations.specialRequests,
   }).from(mealRequirements)
     .leftJoin(meals, eq(mealRequirements.mealId, meals.id))
     .leftJoin(reservations, eq(mealRequirements.reservationId, reservations.id))
     .where(and(gte(mealRequirements.mealDate, from), lte(mealRequirements.mealDate, to), ne(reservations.status, "cancelled")))
     .orderBy(asc(mealRequirements.mealDate), asc(mealRequirements.mealTime));
 
-  const demands: Demand[] = confirmedRows.map((row) => ({ ...row, demandState: row.mealId ? "confirmed" : "unselected" }));
+  const demands: Demand[] = confirmedRows.map((row) => ({
+    ...row,
+    guestCount: row.status === "checked_in" || hasVerifiedGuestCount(row.sourceSystem, row.importState)
+      ? row.guestCount
+      : estimatedGuestCount(row.roomNumber, row.specialRequests),
+    demandState: row.mealId ? "confirmed" : "unselected",
+  }));
   const existing = new Set(demands.map((row) => `${row.reservationId}|${row.mealDate}`));
   const pending = await db.select().from(reservations)
     .where(and(lte(reservations.arrivalDate, to), gte(reservations.departureDate, from), ne(reservations.status, "cancelled")));

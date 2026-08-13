@@ -4,6 +4,7 @@ import { auditLog, mealRequirements, meals, prepReportLines, prepReports, reserv
 import { actorId, cleanText, isIsoDate, jsonError } from "../../../lib/server";
 import { queryPrepDemand } from "../../../lib/prep-query";
 import { invalidateHomePageCache } from "../../../lib/home-page-cache";
+import { estimatedGuestCount, hasVerifiedGuestCount } from "../../../lib/guest-count";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -36,7 +37,9 @@ export async function PATCH(request: Request) {
     const [reservation] = await db.select().from(reservations).where(eq(reservations.id, reservationId)).limit(1);
     if (!reservation || reservation.status === "cancelled") return jsonError("找不到可安排的住宿訂單");
     if (mealDate <= reservation.arrivalDate || mealDate > reservation.departureDate) return jsonError("餐點日期不在住宿期間");
-    const guestCount = Math.max(0, reservation.adults + reservation.children);
+    const guestCount = hasVerifiedGuestCount(reservation.sourceSystem, reservation.importState)
+      ? Math.max(0, reservation.adults + reservation.children)
+      : estimatedGuestCount(reservation.roomNumber, reservation.specialRequests);
     if (mealId) {
       const [meal] = await db.select().from(meals).where(and(eq(meals.id, mealId), eq(meals.isActive, true))).limit(1);
       if (!meal) return jsonError("餐點不存在或已停用");
