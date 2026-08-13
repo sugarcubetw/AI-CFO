@@ -16,6 +16,7 @@ export default function FinancePage() {
   const [newCategory, setNewCategory] = useState("");
   const [online, setOnline] = useState(true);
   const [message, setMessage] = useState("");
+  const [activeTab, setActiveTab] = useState<"add" | "ledger" | "stats">("add");
   const [receipt, setReceipt] = useState<File | null>(null);
   const [queryFrom, setQueryFrom] = useState(today.slice(0, 8) + "01");
   const [queryTo, setQueryTo] = useState(today);
@@ -91,6 +92,7 @@ export default function FinancePage() {
   }, [monthlyRows]);
 
   return <main className="finance-app">
+    <nav className="finance-tabs" aria-label="財務功能"><button type="button" className="active">新增支出</button><button type="button" onClick={() => document.querySelector(".finance-ledger")?.scrollIntoView({ behavior: "smooth" })}>支出明細</button><button type="button" onClick={() => document.querySelector(".finance-query")?.scrollIntoView({ behavior: "smooth" })}>統計分析</button></nav>
     <header className="finance-header"><div><p>方糖民宿</p><h1>支出記帳</h1></div><span className={online ? "online" : "offline"}>{online ? "已連線" : "離線"}</span></header>
     <section className="finance-ledger"><div className="finance-ledger-heading"><div><small>支出明細</small><h2>{summaryMonth.replace("-", " 年 ")} 月</h2></div><label><span>月份</span><input aria-label="檢視月份" type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} /></label></div>{groupedRows.map((group) => <article className="finance-day-card" key={group.date}><header><strong>{group.date.replaceAll("-", "/")}</strong><b>NT$ {group.total.toLocaleString("zh-TW")}</b></header>{group.items.map((row) => <div className="finance-day-item" key={row.syncClientId}><span className="finance-category-dot">{row.category.slice(0, 1)}</span><div><strong>{row.item}</strong><small>{row.category}{row.vendor ? ` · ${row.vendor}` : ""}</small></div><b>NT$ {row.amount.toLocaleString("zh-TW")}</b></div>)}</article>)}{!groupedRows.length && <p className="finance-note">本月尚無支出，按下方「＋」開始記錄。</p>}<button className="finance-floating-add" type="button" onClick={() => document.querySelector(".quick-expense-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} aria-label="新增支出">＋</button></section>
     <section className="finance-status"><strong>{pending}</strong><span>筆待同步</span><small>{message || "資料會先保存在手機"}</small></section><section className="finance-query monthly-summary"><h2>月結總結與 AI 分析</h2><label>結算月份<input type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} /></label><div className="finance-stats"><div><small>當月總支出</small><strong>NT$ {monthlyTotal.toLocaleString("zh-TW")}</strong></div><div><small>交易筆數</small><strong>{monthlyRows.length} 筆</strong></div></div>{monthlyTopCategory && <p className="finance-ai-note">本月主要支出類別為「{monthlyTopCategory.category}」，共 NT$ {monthlyTopCategory.amount.toLocaleString("zh-TW")}；最高細項為「{monthlyTopItem?.item ?? "—"}」。正式 AI 月報將再分析前月差異、異常增加與成本建議。</p>}</section>
