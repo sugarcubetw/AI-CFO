@@ -1,11 +1,17 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { auditLog, financialTransactions } from "../../../../db/schema";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../../lib/server";
 
 
-export async function GET() {
-  const rows = await getDb().select().from(financialTransactions).orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.createdAt)).limit(100);
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const filters = [];
+  if (from) filters.push(gte(financialTransactions.transactionDate, from));
+  if (to) filters.push(lte(financialTransactions.transactionDate, to));
+  const rows = await getDb().select().from(financialTransactions).where(filters.length ? and(...filters) : undefined).orderBy(desc(financialTransactions.transactionDate), desc(financialTransactions.createdAt)).limit(500);
   return Response.json(rows);
 }
 

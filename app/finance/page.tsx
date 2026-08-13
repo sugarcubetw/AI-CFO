@@ -39,6 +39,13 @@ export default function FinancePage() {
   useEffect(() => {
     const current = loadLocal();
     setRows(current); setOnline(navigator.onLine); void sync(current);
+    if (navigator.onLine) void fetch("/api/finance/transactions").then((response) => response.ok ? response.json() as Promise<Array<Omit<Expense, "synced">>> : []).then((remoteRows) => {
+      const remote = remoteRows.map((row) => ({ ...row, synced: true }));
+      const localByKey = new Map(current.map((row) => [row.syncClientId, row]));
+      for (const row of remote) if (!localByKey.has(row.syncClientId)) localByKey.set(row.syncClientId, row);
+      const merged = Array.from(localByKey.values()).sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
+      setRows(merged); saveLocal(merged);
+    }).catch(() => setMessage("雲端資料稍後重試"));
     const onOnline = () => { setOnline(true); void sync(loadLocal()); };
     const onOffline = () => setOnline(false);
     window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline);
