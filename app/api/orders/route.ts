@@ -5,6 +5,34 @@ import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib
 import { invalidateHomePageCache } from "../../../lib/home-page-cache";
 import { getCalendarOrders } from "../../../lib/calendar-cache";
 
+/**
+ * A room can only have one active reservation for an overlapping stay.
+ * Keep this check on the server so manual entry, imports, and future clients
+ * all receive the same protection (the UI check is only a convenience).
+ */
+async function findRoomConflict(
+  db: ReturnType<typeof getDb>,
+  roomNumber: string | null,
+  arrivalDate: string,
+  departureDate: string,
+  excludeId?: string,
+) {
+  if (!roomNumber) return null;
+  const candidates = await db.select({
+    id: reservations.id,
+    status: reservations.status,
+    arrivalDate: reservations.arrivalDate,
+    departureDate: reservations.departureDate,
+    guestName: reservations.guestName,
+  }).from(reservations).where(eq(reservations.roomNumber, roomNumber));
+  return candidates.find((candidate) =>
+    candidate.id !== excludeId &&
+    candidate.status !== "cancelled" &&
+    candidate.arrivalDate < departureDate &&
+    candidate.departureDate > arrivalDate,
+  ) ?? null;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const from = url.searchParams.get("from") ?? "1900-01-01";
@@ -25,10 +53,15 @@ export async function POST(request: Request) {
   const totalAmount = intValue(body.totalAmount);
   const receivedAmount = intValue(body.receivedAmount);
   const db = getDb();
+  const roomNumber = cleanText(body.roomNumber) || null;
+  const roomConflict = await findRoomConflict(db, roomNumber, arrivalDate, departureDate);
+  if (roomConflict) {
+    return jsonError(`房號 ${roomNumber} 在 ${roomConflict.arrivalDate}～${roomConflict.departureDate} 已有訂單（${roomConflict.guestName}），請改選房號或日期`, 409);
+  }
   await db.insert(reservations).values({
     id, sourceSystem: "manual", sourceChannel, status: "pending", guestName,
     arrivalDate, departureDate, roomTypeId: cleanText(body.roomTypeId) || null,
-    roomNumber: cleanText(body.roomNumber) || null, adults: Math.max(1, intValue(body.adults, 1)),
+    roomNumber, adults: Math.max(1, intValue(body.adults, 1)),
     totalAmount, receivedAmount, balanceAmount: Math.max(0, totalAmount - receivedAmount),
     paymentStatus: receivedAmount >= totalAmount && totalAmount > 0 ? "paid" : receivedAmount > 0 ? "deposit_paid" : "pending",
     specialRequests: cleanText(body.specialRequests) || null, importState: "confirmed",
@@ -53,11 +86,19 @@ export async function PATCH(request: Request) {
     const children = intValue(body.children, -1);
     if (adults < 1 || children < 0) return jsonError("成人至少 1 位，兒童不可小於 0");
     const specialRequests = cleanText(body.specialRequests) || null;
+    const requestedRoomTypeId = cleanText(body.roomTypeId);
+    const requestedRoomNumber = cleanText(body.roomNumber);
+    const roomTypeId = requestedRoomTypeId || reservation.roomTypeId;
+    const roomNumber = requestedRoomNumber || reservation.roomNumber;
+    const roomConflict = await findRoomConflict(db, roomNumber, reservation.arrivalDate, reservation.departureDate, id);
+    if (roomConflict) {
+      return jsonError(`房號 ${roomNumber} 在 ${roomConflict.arrivalDate}～${roomConflict.departureDate} 已有訂單（${roomConflict.guestName}），請改選房號`, 409);
+    }
     const user = await actorId();
-    await db.update(reservations).set({ adults, children, specialRequests, importState: "confirmed", updatedAt: new Date().toISOString() }).where(eq(reservations.id, id));
+    await db.update(reservations).set({ adults, children, roomTypeId, roomNumber, specialRequests, importState: "confirmed", updatedAt: new Date().toISOString() }).where(eq(reservations.id, id));
     await db.insert(auditLog).values({
       actorId: user, action: "reservation.updated_manually", objectType: "reservation", objectId: id,
-      detailRedacted: JSON.stringify({ before: { adults: reservation.adults, children: reservation.children }, after: { adults, children }, notesUpdated: specialRequests !== reservation.specialRequests }),
+      detailRedacted: JSON.stringify({ before: { adults: reservation.adults, children: reservation.children, roomTypeId: reservation.roomTypeId, roomNumber: reservation.roomNumber }, after: { adults, children, roomTypeId, roomNumber }, notesUpdated: specialRequests !== reservation.specialRequests }),
     });
     invalidateHomePageCache();
     return Response.json({ ok: true, id, status: "updated", adults, children });
