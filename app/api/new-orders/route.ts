@@ -6,6 +6,7 @@ import { actorId, cleanText, jsonError } from "../../../lib/server";
 import { invalidateHomePageCache } from "../../../lib/home-page-cache";
 
 function sinceDate() { const date = new Date(); date.setDate(date.getDate() - 7); return date.toISOString(); }
+function todayTaipei() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
 
 export async function GET() {
   const db = getDb();
@@ -14,7 +15,7 @@ export async function GET() {
     .from(reservations).where(gte(reservations.createdAt, since)).orderBy(desc(reservations.createdAt));
   const orders = await queryOrders("1900-01-01", "2999-12-31");
   const byId = new Map(orders.map((order) => [order.id, order]));
-  const visible = rows.map((row) => ({ ...byId.get(row.id), createdAt: row.createdAt, readAt: row.readAt })).filter((order) => order.id && order.status !== "checked_in" && order.status !== "cancelled");
+  const visible = rows.map((row) => ({ ...byId.get(row.id), createdAt: row.createdAt, readAt: row.readAt })).filter((order) => order.id && order.arrivalDate >= todayTaipei() && order.status !== "checked_in" && order.status !== "cancelled");
   return Response.json({ orders: visible, unreadCount: visible.filter((order) => !order.readAt).length });
 }
 
