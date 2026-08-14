@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { reservations } from "../../../db/schema";
 import { queryOrders } from "../../../lib/order-query";
@@ -11,7 +11,7 @@ export async function GET() {
   const db = getDb();
   const since = sinceDate();
   const rows = await db.select({ id: reservations.id, readAt: reservations.readAt, createdAt: reservations.createdAt })
-    .from(reservations).where(gte(reservations.createdAt, since)).orderBy(asc(reservations.createdAt));
+    .from(reservations).where(gte(reservations.createdAt, since)).orderBy(desc(reservations.createdAt));
   const orders = await queryOrders("1900-01-01", "2999-12-31");
   const byId = new Map(orders.map((order) => [order.id, order]));
   const visible = rows.map((row) => ({ ...byId.get(row.id), createdAt: row.createdAt, readAt: row.readAt })).filter((order) => order.id && order.status !== "checked_in" && order.status !== "cancelled");
