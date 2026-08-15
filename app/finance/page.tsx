@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type Expense = { id: string; transactionDate: string; category: string; item: string; amount: number; paymentMethod: string; vendor: string; note: string; receiptFileName?: string; syncClientId: string; synced: boolean };
+type FinanceOverview = { revenue: { expected: number; received: number; pending: number; orderCount: number }; expenses: number };
 const key = "fangtang-finance-expenses-v1";
 const defaultCategories = ["人事", "房務", "食材", "公共營運", "行銷平台", "訂閱服務", "貸款", "其他"];
 const categoryIcons: Record<string, string> = { 食材: "🍴", 房務: "✂", 公共營運: "⌂", 人事: "☺", 行銷平台: "📣", 訂閱服務: "▣", 貸款: "＄", 其他: "▦" };
@@ -25,6 +26,7 @@ export default function FinancePage() {
   const [queryTo, setQueryTo] = useState(today);
   const [queryCategory, setQueryCategory] = useState("全部");
   const [summaryMonth, setSummaryMonth] = useState(today.slice(0, 7));
+  const [overview, setOverview] = useState<FinanceOverview | null>(null);
   const [form, setForm] = useState({ transactionDate: today, category: "食材", item: "", amount: "", paymentMethod: "現金", vendor: "", note: "" });
 
   const sync = useCallback(async (current: Expense[]) => {
@@ -32,7 +34,7 @@ export default function FinancePage() {
     let next = [...current];
     for (const row of current.filter((item) => !item.synced)) {
       try {
-        const response = await fetch("/api/finance/transactions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...row, source: "finance-pwa" }) });
+        const response = await fetch("/api/finance/expenses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...row, expenseDate: row.transactionDate, subCategory: row.item, receiptUrl: row.receiptFileName, source: "finance-pwa" }) });
         if (response.ok) next = next.map((item) => item.syncClientId === row.syncClientId ? { ...item, synced: true } : item);
       } catch { break; }
     }
@@ -43,7 +45,7 @@ export default function FinancePage() {
   useEffect(() => {
     const current = loadLocal();
     setRows(current); setOnline(navigator.onLine); void sync(current);
-    if (navigator.onLine) void fetch("/api/finance/transactions").then((response) => response.ok ? response.json() as Promise<Array<Omit<Expense, "synced">>> : []).then((remoteRows) => {
+    if (navigator.onLine) void fetch(`/api/finance/expenses?month=${summaryMonth}`).then((response) => response.ok ? response.json() as Promise<Array<Omit<Expense, "synced">>> : []).then((remoteRows) => {
       const remote = remoteRows.map((row) => ({ ...row, synced: true }));
       const localByKey = new Map(current.map((row) => [row.syncClientId, row]));
       for (const row of remote) if (!localByKey.has(row.syncClientId)) localByKey.set(row.syncClientId, row);
@@ -55,6 +57,12 @@ export default function FinancePage() {
     window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline);
     return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
   }, [sync]);
+
+  useEffect(() => {
+    const from = `${summaryMonth}-01`;
+    const to = `${summaryMonth}-31`;
+    fetch(`/api/finance/overview?from=${from}&to=${to}`).then((response) => response.ok ? response.json() as Promise<FinanceOverview> : null).then(setOverview).catch(() => setOverview(null));
+  }, [summaryMonth]);
 
   function addCategory() {
     const value = newCategory.trim();
@@ -108,6 +116,7 @@ export default function FinancePage() {
   return <main className={`finance-app finance-tab-${activeTab}`}>
     <header className="finance-header"><div><p>方糖民宿</p><h1>支出記帳</h1></div><span className={online ? "online" : "offline"}>{online ? "已連線" : "離線"}</span></header>
     <nav className="finance-tabs" aria-label="財務功能"><button type="button" className={activeTab === "add" ? "active" : ""} onClick={() => setActiveTab("add")}>新增支出</button><button type="button" className={activeTab === "ledger" ? "active" : ""} onClick={() => setActiveTab("ledger")}>支出明細</button><button type="button" className={activeTab === "stats" ? "active" : ""} onClick={() => setActiveTab("stats")}>統計分析</button></nav>
+    <section className="finance-query finance-overview"><div className="section-heading"><h2>財務總覽</h2><span>{summaryMonth}</span></div><div className="finance-stats"><div><small>本月訂單收入</small><strong>NT$ {(overview?.revenue.expected ?? 0).toLocaleString("zh-TW")}</strong></div><div><small>本月支出</small><strong>NT$ {(overview?.expenses ?? monthlyTotal).toLocaleString("zh-TW")}</strong></div><div><small>預估淨利</small><strong>NT$ {((overview?.revenue.expected ?? 0) - (overview?.expenses ?? monthlyTotal)).toLocaleString("zh-TW")}</strong></div><div><small>訂單數</small><strong>{overview?.revenue.orderCount ?? 0} 筆</strong></div></div>{overview && <p className="finance-note">已收訂金／款項 NT$ {overview.revenue.received.toLocaleString("zh-TW")}・待收尾款 NT$ {overview.revenue.pending.toLocaleString("zh-TW")}</p>}</section>
     <section className="finance-ledger"><div className="finance-ledger-heading"><div><small>支出明細</small><h2>{summaryMonth.replace("-", " 年 ")} 月</h2></div><label><span>月份</span><input aria-label="檢視月份" type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} /></label></div>{groupedRows.map((group) => <article className="finance-day-card" key={group.date}><header><strong>{group.date.replaceAll("-", "/")}</strong><b>NT$ {group.total.toLocaleString("zh-TW")}</b></header>{group.items.map((row) => <div className="finance-day-item" key={row.syncClientId}><span className="finance-category-dot">{row.category.slice(0, 1)}</span><div><strong>{row.item}</strong><small>{row.category}{row.vendor ? ` · ${row.vendor}` : ""}</small></div><b>NT$ {row.amount.toLocaleString("zh-TW")}</b></div>)}</article>)}{!groupedRows.length && <p className="finance-note">本月尚無支出，按下方「＋」開始記錄。</p>}<button className="finance-floating-add" type="button" onClick={() => document.querySelector(".quick-expense-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} aria-label="新增支出">＋</button></section>
     <section className="finance-status"><strong>{pending}</strong><span>筆待同步</span><small>{message || "資料會先保存在手機"}</small></section><section className="finance-query monthly-summary"><h2>月結總結與 AI 分析</h2><label>結算月份<input type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} /></label><div className="finance-stats"><div><small>當月總支出</small><strong>NT$ {monthlyTotal.toLocaleString("zh-TW")}</strong></div><div><small>交易筆數</small><strong>{monthlyRows.length} 筆</strong></div></div>{monthlyTopCategory && <p className="finance-ai-note">本月主要支出類別為「{monthlyTopCategory.category}」，共 NT$ {monthlyTopCategory.amount.toLocaleString("zh-TW")}；最高細項為「{monthlyTopItem?.item ?? "—"}」。正式 AI 月報將再分析前月差異、異常增加與成本建議。</p>}</section>
     <section className="finance-query"><h2>費用查詢及統計</h2><div className="two-columns"><label>起日<input type="date" value={queryFrom} onChange={(e) => setQueryFrom(e.target.value)} /></label><label>迄日<input type="date" value={queryTo} onChange={(e) => setQueryTo(e.target.value)} /></label></div><label>費用類別<select value={queryCategory} onChange={(e) => setQueryCategory(e.target.value)}><option>全部</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><div className="finance-stats"><div><small>期間支出</small><strong>NT$ {total.toLocaleString("zh-TW")}</strong></div><div><small>筆數</small><strong>{filteredRows.length} 筆</strong></div></div><h3 className="finance-breakdown-title">大類明細</h3>{byCategory.map((item) => <div className="finance-category-stat" key={item.category}><span>{item.category}</span><strong>NT$ {item.amount.toLocaleString("zh-TW")}</strong></div>)}<h3 className="finance-breakdown-title">細項成本排行</h3>{byItem.slice(0, 10).map((item) => <div className="finance-category-stat" key={item.item}><span>{item.item}</span><strong>NT$ {item.amount.toLocaleString("zh-TW")}</strong></div>)}{largestItem && <p className="finance-ai-note">目前範圍內支出最高的細項是「{largestItem.item}」，共 NT$ {largestItem.amount.toLocaleString("zh-TW")}。AI 分析將以這些明細進一步判斷成本異常與變化原因。</p>}</section>

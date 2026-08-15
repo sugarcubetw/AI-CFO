@@ -230,6 +230,25 @@ export const financialTransactions = sqliteTable("financial_transactions", {
   index("idx_financial_transactions_category").on(table.category),
 ]);
 
+// Finance module's durable expense ledger.  Orders remain the revenue source
+// of truth; this table only stores expenditures entered by finance users.
+export const expenses = sqliteTable("expenses", {
+  id: text("id").primaryKey(),
+  expenseDate: text("expense_date").notNull(),
+  amount: integer("amount").notNull(),
+  category: text("category").notNull(),
+  subCategory: text("sub_category"),
+  vendor: text("vendor"),
+  paymentMethod: text("payment_method").notNull().default("other"),
+  receiptUrl: text("receipt_url"),
+  note: text("note"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_expenses_date").on(table.expenseDate),
+  index("idx_expenses_category").on(table.category),
+]);
+
 export const prepReports = sqliteTable("prep_reports", {
   id: text("id").primaryKey(),
   periodFrom: text("period_from").notNull(),
