@@ -254,3 +254,5 @@ input[readonly] { color:#526057; background:#edf1ed; }
   .calendar-active .calendar-agenda-order .order .compact { margin:6px 0 0; padding:7px; }
   .calendar-active .calendar-stay-state { top:7px; right:7px; }
 }
+.expense-actions { display:flex; grid-column:1 / -1; gap:8px; }
+.danger-text { color:#b42318 !important; }
