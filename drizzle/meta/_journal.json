@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786072684218,
+      "tag": "0000_wonderful_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786076794136,
+      "tag": "0001_talented_jane_foster",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786080399200,
+      "tag": "0002_faithful_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786117480563,
+      "tag": "0003_brave_leech",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786155549754,
+      "tag": "0004_sturdy_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786499875814,
+      "tag": "0005_needy_selene",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786626820131,
+      "tag": "0006_fluffy_jazinda",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786802813109,
+      "tag": "0007_reflective_shiver_man",
+      "breakpoints": true
+    }
+  ]
+}
