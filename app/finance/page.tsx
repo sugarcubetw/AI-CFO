@@ -74,7 +74,7 @@ export default function FinancePage() {
     setMessage(`已新增類別：${value}`);
   }
 
-  async function submit(event: FormEvent) {
+  function submit(event: FormEvent) {
     event.preventDefault();
     const amount = Number(form.amount);
     if (!form.item || !Number.isFinite(amount) || amount <= 0) { setMessage("請填寫費用細項與正確金額"); return; }
@@ -83,12 +83,7 @@ export default function FinancePage() {
       if (!current) return;
       const updated: Expense = { ...current, ...form, amount, receiptFileName: receipt?.name ?? current.receiptFileName, synced: false };
       const next = rows.map((item) => item.id === editingId ? updated : item);
-      if (current.synced && navigator.onLine) {
-        const response = await fetch("/api/finance/expenses", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: current.id, expenseDate: form.transactionDate, amount, category: form.category, subCategory: form.item, vendor: form.vendor, paymentMethod: form.paymentMethod, note: form.note, receiptUrl: receipt?.name }) });
-        updated.synced = response.ok;
-      }
-      const saved = next.map((item) => item.id === editingId ? updated : item);
-      setRows(saved); saveLocal(saved); setEditingId(null); setReceipt(null); setMessage(updated.synced ? "支出已修改並同步" : "支出已修改，等待同步"); void sync(saved); return;
+      setRows(next); saveLocal(next); setEditingId(null); setReceipt(null); setMessage("支出已修改，等待同步"); void sync(next); return;
     }
     const row: Expense = { id: `local-${crypto.randomUUID()}`, ...form, amount, receiptFileName: receipt?.name, syncClientId: crypto.randomUUID(), synced: false };
     const next = [row, ...rows]; setRows(next); saveLocal(next);
