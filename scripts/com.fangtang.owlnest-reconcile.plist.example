@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.fangtang.owlnest-reconcile</string>
+  <key>WorkingDirectory</key>
+  <string>/ABSOLUTE/PATH/TO/reception-mobile-site</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/ABSOLUTE/PATH/TO/node</string>
+    <string>scripts/owlnest-daily-reconcile.mjs</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OPS_SITE_URL</key>
+    <string>https://fangtang-mobile-reception.dk8515.chatgpt.site</string>
+    <key>OWL_NEST_PROFILE_DIR</key>
+    <string>/Users/scott/.fangtang/owlnest-browser</string>
+    <key>OWLNEST_AGENT_STATE_DIR</key>
+    <string>/Users/scott/.fangtang/owlnest-agent</string>
+    <key>OWLNEST_PERIOD_DAYS</key>
+    <string>90</string>
+    <key>OWLNEST_HEADLESS</key>
+    <string>true</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/scott/.fangtang/owlnest-agent/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/scott/.fangtang/owlnest-agent/launchd-error.log</string>
+</dict>
+</plist>
