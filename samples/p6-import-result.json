@@ -1,0 +1,28 @@
+{
+  "testedAt": "2026-08-07T03:22:40.094Z",
+  "source": "Gmail / OwlNest_Booking",
+  "first": {
+    "received": 5,
+    "inserted": 4,
+    "updated": 1,
+    "duplicates": 0,
+    "errors": []
+  },
+  "replay": {
+    "received": 5,
+    "inserted": 0,
+    "updated": 0,
+    "duplicates": 5,
+    "errors": []
+  },
+  "cancellationPrecedence": {
+    "status": "cancelled",
+    "import_state": "pending_review"
+  },
+  "database": {
+    "reservations": 4,
+    "events": 5,
+    "pendingReview": 4
+  },
+  "containsGuestContactPlaintext": false
+}

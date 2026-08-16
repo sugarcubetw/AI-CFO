@@ -6,3 +6,9 @@
 !.env.example
 .vscode/*.local.json
 work/
+.next/
+.vinext/
+.wrangler/
+dist/
+node_modules/
+test-artifacts/
