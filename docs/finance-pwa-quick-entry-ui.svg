@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="430" height="900" viewBox="0 0 430 900">
+<rect width="430" height="900" fill="#eef2ed"/><rect x="18" y="18" width="394" height="864" rx="28" fill="#f5f7f4" stroke="#cbd5cc" stroke-width="2"/>
+<rect x="18" y="18" width="394" height="88" rx="28" fill="#1f5b3a"/><rect x="18" y="67" width="394" height="39" fill="#1f5b3a"/>
+<text x="42" y="52" fill="#dff4e5" font-family="Arial" font-size="12">方糖民宿</text><text x="42" y="85" fill="#fff" font-family="Arial" font-size="23" font-weight="700">快速支出</text><text x="337" y="56" fill="#dff4e5" font-family="Arial" font-size="12">已連線</text>
+<rect x="18" y="106" width="394" height="64" fill="#e7f3ea"/><text x="46" y="143" fill="#1f5b3a" font-family="Arial" font-size="28" font-weight="700">2</text><text x="80" y="136" fill="#172019" font-family="Arial" font-size="14" font-weight="700">筆待同步</text><text x="80" y="156" fill="#607064" font-family="Arial" font-size="11">資料會先保存在手機</text>
+<rect x="34" y="188" width="362" height="470" rx="20" fill="#fff" stroke="#d6ddd6"/><text x="56" y="225" fill="#172019" font-family="Arial" font-size="20" font-weight="700">新增支出</text>
+<text x="56" y="260" fill="#526057" font-family="Arial" font-size="12">費用類別</text><rect x="56" y="270" width="318" height="50" rx="12" fill="#fff" stroke="#c6cfc7"/><text x="74" y="302" fill="#172019" font-family="Arial" font-size="16">食材</text><text x="350" y="302" fill="#6b766e" font-family="Arial" font-size="16">⌄</text>
+<rect x="56" y="330" width="318" height="38" rx="10" fill="#eef7f0" stroke="#b9c3bb"/><text x="215" y="355" text-anchor="middle" fill="#1f5b3a" font-family="Arial" font-size="12">＋ 新增支出類別</text>
+<text x="56" y="405" fill="#526057" font-family="Arial" font-size="12">費用細項</text><rect x="56" y="415" width="318" height="50" rx="12" fill="#fff" stroke="#c6cfc7"/><text x="74" y="447" fill="#9aa39c" font-family="Arial" font-size="14">例如：雞蛋、洗衣、電費</text>
+<text x="56" y="505" fill="#526057" font-family="Arial" font-size="12">金額</text><rect x="56" y="515" width="318" height="66" rx="12" fill="#f4f7f4" stroke="#c6cfc7"/><text x="350" y="560" text-anchor="end" fill="#9aa39c" font-family="Arial" font-size="30" font-weight="700">0</text>
+<rect x="56" y="601" width="318" height="50" rx="13" fill="#1f5b3a"/><text x="215" y="633" text-anchor="middle" fill="#fff" font-family="Arial" font-size="17" font-weight="700">儲存支出</text>
+<rect x="34" y="675" width="362" height="58" rx="16" fill="#fff" stroke="#d6ddd6"/><text x="56" y="711" fill="#526057" font-family="Arial" font-size="13">更多資訊（選填）</text><text x="365" y="711" text-anchor="end" fill="#607064" font-family="Arial" font-size="18">⌄</text>
+<text x="215" y="776" text-anchor="middle" fill="#607064" font-family="Arial" font-size="12">日期預設今天・儲存後背景同步</text><text x="215" y="800" text-anchor="middle" fill="#607064" font-family="Arial" font-size="11">收據拍照可在更多資訊中開啟 AI 辨識</text>
+</svg>
