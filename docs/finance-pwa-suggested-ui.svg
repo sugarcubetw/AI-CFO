@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+  <rect width="900" height="900" fill="#eef2ed"/>
+  <text x="450" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#33423a">方糖民宿財務 PWA UI 建議</text>
+
+  <!-- Home -->
+  <rect x="30" y="65" width="400" height="800" rx="28" fill="#fff" stroke="#cbd5cc" stroke-width="2"/>
+  <rect x="30" y="65" width="400" height="90" rx="28" fill="#1f5b3a"/>
+  <rect x="30" y="120" width="400" height="35" fill="#1f5b3a"/>
+  <text x="55" y="99" fill="#dff4e5" font-family="Arial, sans-serif" font-size="12">方糖民宿</text>
+  <text x="55" y="132" fill="#fff" font-family="Arial, sans-serif" font-size="23" font-weight="700">今日記帳</text>
+  <text x="340" y="105" fill="#dff4e5" font-family="Arial, sans-serif" font-size="12">已連線</text>
+  <text x="55" y="190" fill="#172019" font-family="Arial, sans-serif" font-size="19" font-weight="700">2026/08/13 星期四</text>
+  <text x="55" y="224" fill="#6b766e" font-family="Arial, sans-serif" font-size="13">今日支出</text>
+  <text x="55" y="262" fill="#d99b22" font-family="Arial, sans-serif" font-size="31" font-weight="700">NT$ 3,550</text>
+  <rect x="50" y="288" width="360" height="1" fill="#dfe5df"/>
+  <text x="55" y="325" fill="#172019" font-family="Arial, sans-serif" font-size="16" font-weight="700">食材</text>
+  <text x="55" y="350" fill="#6b766e" font-family="Arial, sans-serif" font-size="12">早餐雞蛋、牛奶 · 現金</text>
+  <text x="325" y="340" fill="#172019" font-family="Arial, sans-serif" font-size="16" font-weight="700">-2,350</text>
+  <rect x="50" y="370" width="360" height="1" fill="#edf0ed"/>
+  <text x="55" y="406" fill="#172019" font-family="Arial, sans-serif" font-size="16" font-weight="700">公共營運</text>
+  <text x="55" y="431" fill="#6b766e" font-family="Arial, sans-serif" font-size="12">網路費 · 轉帳</text>
+  <text x="325" y="421" fill="#172019" font-family="Arial, sans-serif" font-size="16" font-weight="700">-1,200</text>
+  <rect x="50" y="451" width="360" height="1" fill="#edf0ed"/>
+  <text x="55" y="487" fill="#172019" font-family="Arial, sans-serif" font-size="16" font-weight="700">房務</text>
+  <text x="55" y="512" fill="#6b766e" font-family="Arial, sans-serif" font-size="12">清潔用品 · 待同步</text>
+  <text x="325" y="502" fill="#172019" font-family="Arial, sans-serif" font-size="16" font-weight="700">-0</text>
+  <rect x="50" y="555" width="360" height="1" fill="#dfe5df"/>
+  <text x="55" y="590" fill="#6b766e" font-family="Arial, sans-serif" font-size="12">本月待同步 2 筆</text>
+  <rect x="337" y="735" width="62" height="62" rx="31" fill="#ff6f73" stroke="#b94e53" stroke-width="2"/>
+  <text x="368" y="777" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="39">+</text>
+  <text x="230" y="835" text-anchor="middle" fill="#607064" font-family="Arial, sans-serif" font-size="11">點擊 ＋ 快速新增費用</text>
+
+  <!-- Add expense -->
+  <rect x="470" y="65" width="400" height="800" rx="28" fill="#fff" stroke="#cbd5cc" stroke-width="2"/>
+  <rect x="470" y="65" width="400" height="74" rx="28" fill="#fff"/>
+  <text x="495" y="110" fill="#172019" font-family="Arial, sans-serif" font-size="27">‹</text>
+  <rect x="565" y="83" width="210" height="38" rx="19" fill="#ffd45d" stroke="#172019" stroke-width="2"/>
+  <rect x="670" y="84" width="104" height="36" rx="17" fill="#fff"/>
+  <text x="596" y="108" fill="#172019" font-family="Arial, sans-serif" font-size="17" font-weight="700">支出</text>
+  <text x="705" y="108" fill="#172019" font-family="Arial, sans-serif" font-size="17" font-weight="700">收入</text>
+  <text x="515" y="170" fill="#172019" font-family="Arial, sans-serif" font-size="18" font-weight="700">2026/08/13 星期四</text>
+  <text x="515" y="198" fill="#6b766e" font-family="Arial, sans-serif" font-size="12">選擇費用類別</text>
+  <g font-family="Arial, sans-serif" font-size="13" text-anchor="middle" fill="#172019">
+    <circle cx="535" cy="245" r="27" fill="#ffd45d"/><text x="535" y="250">食材</text>
+    <circle cx="635" cy="245" r="27" fill="#d9ecdf"/><text x="635" y="250">房務</text>
+    <circle cx="735" cy="245" r="27" fill="#d9e7f3"/><text x="735" y="250">水電</text>
+    <circle cx="835" cy="245" r="27" fill="#f4d9de"/><text x="835" y="250">備品</text>
+    <circle cx="535" cy="320" r="27" fill="#d9ecdf"/><text x="535" y="325">薪資</text>
+    <circle cx="635" cy="320" r="27" fill="#e9dfd0"/><text x="635" y="325">維修</text>
+    <circle cx="735" cy="320" r="27" fill="#d9e7f3"/><text x="735" y="325">訂閱</text>
+    <circle cx="835" cy="320" r="27" fill="#ececec"/><text x="835" y="325">其他</text>
+  </g>
+  <rect x="510" y="370" width="320" height="58" rx="12" fill="#f4f7f4"/>
+  <text x="530" y="395" fill="#6b766e" font-family="Arial, sans-serif" font-size="12">金額</text>
+  <text x="530" y="417" fill="#172019" font-family="Arial, sans-serif" font-size="23" font-weight="700">NT$ 2,350</text>
+  <rect x="510" y="442" width="320" height="38" rx="10" fill="#fff" stroke="#c6cfc7"/>
+  <text x="527" y="467" fill="#9aa39c" font-family="Arial, sans-serif" font-size="13">費用細項，例如：雞蛋、牛奶</text>
+  <rect x="510" y="494" width="155" height="38" rx="10" fill="#fff" stroke="#c6cfc7"/>
+  <text x="527" y="519" fill="#172019" font-family="Arial, sans-serif" font-size="13">現金</text>
+  <rect x="675" y="494" width="155" height="38" rx="10" fill="#fff" stroke="#c6cfc7"/>
+  <text x="692" y="519" fill="#9aa39c" font-family="Arial, sans-serif" font-size="13">供應商（選填）</text>
+  <rect x="510" y="548" width="320" height="42" rx="11" fill="#fff1bd" stroke="#e2b742"/>
+  <text x="670" y="575" text-anchor="middle" fill="#8d6815" font-family="Arial, sans-serif" font-size="13">拍照收據，交由 AI 建立草稿</text>
+  <rect x="510" y="614" width="320" height="48" rx="13" fill="#1f5b3a"/>
+  <text x="670" y="645" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="16" font-weight="700">儲存費用</text>
+  <text x="670" y="700" text-anchor="middle" fill="#607064" font-family="Arial, sans-serif" font-size="12">儲存後立即完成，背景自動同步</text>
+  <text x="670" y="724" text-anchor="middle" fill="#607064" font-family="Arial, sans-serif" font-size="12">AI 結果需人工確認才正式入帳</text>
+</svg>
