@@ -1,0 +1,152 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+
+type Expense = { id: string; transactionDate: string; category: string; item: string; amount: number; paymentMethod: string; vendor: string; note: string; receiptFileName?: string; syncClientId: string; synced: boolean };
+type FinanceOverview = { revenue: { expected: number; received: number; pending: number; orderCount: number }; expenses: number };
+const key = "fangtang-finance-expenses-v1";
+const defaultCategories = ["人事", "房務", "食材", "公共營運", "行銷平台", "訂閱服務", "貸款", "其他"];
+const categoryIcons: Record<string, string> = { 食材: "🍴", 房務: "✂", 公共營運: "⌂", 人事: "☺", 行銷平台: "📣", 訂閱服務: "▣", 貸款: "＄", 其他: "▦" };
+const quickItems = ["生菜", "九層塔", "鮮奶", "蘋果", "馬鈴薯"];
+const methods = ["現金", "銀行轉帳", "信用卡", "LINE Pay", "其他"];
+const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+function loadLocal(): Expense[] { try { return JSON.parse(localStorage.getItem(key) ?? "[]") as Expense[]; } catch { return []; } }
+function saveLocal(rows: Expense[]) { localStorage.setItem(key, JSON.stringify(rows)); }
+
+export default function FinancePage() {
+  const [rows, setRows] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState(defaultCategories);
+  const [newCategory, setNewCategory] = useState("");
+  const [online, setOnline] = useState(true);
+  const [message, setMessage] = useState("");
+  const [activeTab, setActiveTab] = useState<"add" | "ledger" | "stats">("add");
+  const [calculator, setCalculator] = useState("");
+  const [receipt, setReceipt] = useState<File | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [queryFrom, setQueryFrom] = useState(today.slice(0, 8) + "01");
+  const [queryTo, setQueryTo] = useState(today);
+  const [queryCategory, setQueryCategory] = useState("全部");
+  const [summaryMonth, setSummaryMonth] = useState(today.slice(0, 7));
+  const [overview, setOverview] = useState<FinanceOverview | null>(null);
+  const [form, setForm] = useState({ transactionDate: today, category: "食材", item: "", amount: "", paymentMethod: "現金", vendor: "", note: "" });
+
+  const sync = useCallback(async (current: Expense[]) => {
+    if (!navigator.onLine) return;
+    let next = [...current];
+    for (const row of current.filter((item) => !item.synced)) {
+      try {
+        const response = await fetch("/api/finance/expenses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...row, expenseDate: row.transactionDate, subCategory: row.item, receiptUrl: row.receiptFileName, source: "finance-pwa" }) });
+        if (response.ok) next = next.map((item) => item.syncClientId === row.syncClientId ? { ...item, synced: true } : item);
+      } catch { break; }
+    }
+    setRows(next); saveLocal(next);
+    if (current.some((item) => !item.synced)) setMessage(next.some((item) => !item.synced) ? "部分資料待同步" : "已同步至雲端");
+  }, []);
+
+  useEffect(() => {
+    const current = loadLocal();
+    setRows(current); setOnline(navigator.onLine); void sync(current);
+    if (navigator.onLine) void fetch(`/api/finance/expenses?month=${summaryMonth}`).then((response) => response.ok ? response.json() as Promise<Array<Omit<Expense, "synced">>> : []).then((remoteRows) => {
+      const remote = remoteRows.map((row) => ({ ...row, synced: true }));
+      const localByKey = new Map(current.map((row) => [row.syncClientId, row]));
+      for (const row of remote) if (!localByKey.has(row.syncClientId)) localByKey.set(row.syncClientId, row);
+      const merged = Array.from(localByKey.values()).sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
+      setRows(merged); saveLocal(merged);
+    }).catch(() => setMessage("雲端資料稍後重試"));
+    const onOnline = () => { setOnline(true); void sync(loadLocal()); };
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline); window.addEventListener("offline", onOffline);
+    return () => { window.removeEventListener("online", onOnline); window.removeEventListener("offline", onOffline); };
+  }, [sync]);
+
+  useEffect(() => {
+    const from = `${summaryMonth}-01`;
+    const to = `${summaryMonth}-31`;
+    fetch(`/api/finance/overview?from=${from}&to=${to}`).then((response) => response.ok ? response.json() as Promise<FinanceOverview> : null).then(setOverview).catch(() => setOverview(null));
+  }, [summaryMonth]);
+
+  function addCategory() {
+    const value = newCategory.trim();
+    if (!value || categories.includes(value)) return;
+    setCategories((current) => [...current, value]);
+    setForm((current) => ({ ...current, category: value }));
+    setNewCategory("");
+    setMessage(`已新增類別：${value}`);
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const amount = Number(form.amount);
+    if (!form.item || !Number.isFinite(amount) || amount <= 0) { setMessage("請填寫費用細項與正確金額"); return; }
+    if (editingId) {
+      const current = rows.find((item) => item.id === editingId);
+      if (!current) return;
+      const updated: Expense = { ...current, ...form, amount, receiptFileName: receipt?.name ?? current.receiptFileName, synced: false };
+      const next = rows.map((item) => item.id === editingId ? updated : item);
+      if (current.synced && navigator.onLine) {
+        const response = await fetch("/api/finance/expenses", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: current.id, expenseDate: form.transactionDate, amount, category: form.category, subCategory: form.item, vendor: form.vendor, paymentMethod: form.paymentMethod, note: form.note, receiptUrl: receipt?.name }) });
+        updated.synced = response.ok;
+      }
+      const saved = next.map((item) => item.id === editingId ? updated : item);
+      setRows(saved); saveLocal(saved); setEditingId(null); setReceipt(null); setMessage(updated.synced ? "支出已修改並同步" : "支出已修改，等待同步"); void sync(saved); return;
+    }
+    const row: Expense = { id: `local-${crypto.randomUUID()}`, ...form, amount, receiptFileName: receipt?.name, syncClientId: crypto.randomUUID(), synced: false };
+    const next = [row, ...rows]; setRows(next); saveLocal(next);
+    setForm({ ...form, item: "", amount: "", vendor: "", note: "" }); setReceipt(null);
+    setMessage(navigator.onLine ? "已加入同步佇列" : "已離線儲存，恢復網路後自動同步");
+    void sync(next);
+  }
+
+  function editExpense(row: Expense) {
+    setEditingId(row.id); setActiveTab("add");
+    setForm({ transactionDate: row.transactionDate, category: row.category, item: row.item, amount: String(row.amount), paymentMethod: row.paymentMethod, vendor: row.vendor, note: row.note });
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  }
+
+  function deleteExpense(row: Expense) {
+    const next = rows.filter((item) => item.id !== row.id);
+    setRows(next); saveLocal(next); setMessage("支出已刪除");
+    if (row.synced && navigator.onLine) void fetch("/api/finance/expenses", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: row.id, action: "delete" }) });
+  }
+
+  function pressCalculator(value: string) {
+    if (value === "AC") return setCalculator("");
+    if (value === "⌫") return setCalculator((current) => current.slice(0, -1));
+    if (value === "OK") {
+      setForm((current) => ({ ...current, amount: calculator }));
+      setMessage("金額已帶入，請確認細項後儲存");
+      return;
+    }
+    setCalculator((current) => `${current}${value}`.slice(0, 12));
+  }
+
+  const filteredRows = useMemo(() => rows.filter((row) => row.transactionDate >= queryFrom && row.transactionDate <= queryTo && (queryCategory === "全部" || row.category === queryCategory)), [rows, queryFrom, queryTo, queryCategory]);
+  const total = filteredRows.reduce((sum, row) => sum + row.amount, 0);
+  const byCategory = useMemo(() => categories.map((category) => ({ category, amount: filteredRows.filter((row) => row.category === category).reduce((sum, row) => sum + row.amount, 0) })).filter((item) => item.amount > 0), [categories, filteredRows]);
+  const byItem = useMemo(() => Object.entries(filteredRows.reduce<Record<string, number>>((result, row) => { result[row.item] = (result[row.item] ?? 0) + row.amount; return result; }, {})).map(([item, amount]) => ({ item, amount })).sort((a, b) => b.amount - a.amount), [filteredRows]);
+  const largestItem = byItem[0];
+  const pending = rows.filter((row) => !row.synced).length;
+  const monthlyRows = useMemo(() => rows.filter((row) => row.transactionDate.startsWith(summaryMonth)), [rows, summaryMonth]);
+  const monthlyTotal = monthlyRows.reduce((sum, row) => sum + row.amount, 0);
+  const monthlyByCategory = useMemo(() => Object.entries(monthlyRows.reduce<Record<string, number>>((result, row) => { result[row.category] = (result[row.category] ?? 0) + row.amount; return result; }, {})).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount), [monthlyRows]);
+  const monthlyByItem = useMemo(() => Object.entries(monthlyRows.reduce<Record<string, number>>((result, row) => { result[row.item] = (result[row.item] ?? 0) + row.amount; return result; }, {})).map(([item, amount]) => ({ item, amount })).sort((a, b) => b.amount - a.amount), [monthlyRows]);
+  const monthlyTopCategory = monthlyByCategory[0];
+  const monthlyTopItem = monthlyByItem[0];
+  const groupedRows = useMemo(() => {
+    const groups = new Map<string, Expense[]>();
+    for (const row of monthlyRows) groups.set(row.transactionDate, [...(groups.get(row.transactionDate) ?? []), row]);
+    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(([date, items]) => ({ date, items, total: items.reduce((sum, row) => sum + row.amount, 0) }));
+  }, [monthlyRows]);
+
+  return <main className={`finance-app finance-tab-${activeTab}`}>
+    <header className="finance-header"><div><p>方糖民宿</p><h1>支出記帳</h1></div><span className={online ? "online" : "offline"}>{online ? "已連線" : "離線"}</span></header>
+    <nav className="finance-tabs" aria-label="財務功能"><button type="button" className={activeTab === "add" ? "active" : ""} onClick={() => setActiveTab("add")}>新增支出</button><button type="button" className={activeTab === "ledger" ? "active" : ""} onClick={() => setActiveTab("ledger")}>支出明細</button><button type="button" className={activeTab === "stats" ? "active" : ""} onClick={() => setActiveTab("stats")}>統計分析</button></nav>
+    <section className="finance-query finance-overview"><div className="section-heading"><h2>財務總覽</h2><span>{summaryMonth}</span></div><div className="finance-stats"><div><small>本月訂單收入</small><strong>NT$ {(overview?.revenue.expected ?? 0).toLocaleString("zh-TW")}</strong></div><div><small>本月支出</small><strong>NT$ {(overview?.expenses ?? monthlyTotal).toLocaleString("zh-TW")}</strong></div><div><small>預估淨利</small><strong>NT$ {((overview?.revenue.expected ?? 0) - (overview?.expenses ?? monthlyTotal)).toLocaleString("zh-TW")}</strong></div><div><small>訂單數</small><strong>{overview?.revenue.orderCount ?? 0} 筆</strong></div></div>{overview && <p className="finance-note">已收訂金／款項 NT$ {overview.revenue.received.toLocaleString("zh-TW")}・待收尾款 NT$ {overview.revenue.pending.toLocaleString("zh-TW")}</p>}</section>
+    <section className="finance-ledger"><div className="finance-ledger-heading"><div><small>支出明細</small><h2>{summaryMonth.replace("-", " 年 ")} 月</h2></div><label><span>月份</span><input aria-label="檢視月份" type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} /></label></div>{groupedRows.map((group) => <article className="finance-day-card" key={group.date}><header><strong>{group.date.replaceAll("-", "/")}</strong><b>NT$ {group.total.toLocaleString("zh-TW")}</b></header>{group.items.map((row) => <div className="finance-day-item" key={row.syncClientId}><span className="finance-category-dot">{row.category.slice(0, 1)}</span><div><strong>{row.item}</strong><small>{row.category}{row.vendor ? ` · ${row.vendor}` : ""}</small></div><b>NT$ {row.amount.toLocaleString("zh-TW")}</b></div>)}</article>)}{!groupedRows.length && <p className="finance-note">本月尚無支出，按下方「＋」開始記錄。</p>}<button className="finance-floating-add" type="button" onClick={() => document.querySelector(".quick-expense-form")?.scrollIntoView({ behavior: "smooth", block: "start" })} aria-label="新增支出">＋</button></section>
+    <section className="finance-status"><strong>{pending}</strong><span>筆待同步</span><small>{message || "資料會先保存在手機"}</small></section><section className="finance-query monthly-summary"><h2>月結總結與 AI 分析</h2><label>結算月份<input type="month" value={summaryMonth} onChange={(e) => setSummaryMonth(e.target.value)} /></label><div className="finance-stats"><div><small>當月總支出</small><strong>NT$ {monthlyTotal.toLocaleString("zh-TW")}</strong></div><div><small>交易筆數</small><strong>{monthlyRows.length} 筆</strong></div></div>{monthlyTopCategory && <p className="finance-ai-note">本月主要支出類別為「{monthlyTopCategory.category}」，共 NT$ {monthlyTopCategory.amount.toLocaleString("zh-TW")}；最高細項為「{monthlyTopItem?.item ?? "—"}」。正式 AI 月報將再分析前月差異、異常增加與成本建議。</p>}</section>
+    <section className="finance-query"><h2>費用查詢及統計</h2><div className="two-columns"><label>起日<input type="date" value={queryFrom} onChange={(e) => setQueryFrom(e.target.value)} /></label><label>迄日<input type="date" value={queryTo} onChange={(e) => setQueryTo(e.target.value)} /></label></div><label>費用類別<select value={queryCategory} onChange={(e) => setQueryCategory(e.target.value)}><option>全部</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><div className="finance-stats"><div><small>期間支出</small><strong>NT$ {total.toLocaleString("zh-TW")}</strong></div><div><small>筆數</small><strong>{filteredRows.length} 筆</strong></div></div><h3 className="finance-breakdown-title">大類明細</h3>{byCategory.map((item) => <div className="finance-category-stat" key={item.category}><span>{item.category}</span><strong>NT$ {item.amount.toLocaleString("zh-TW")}</strong></div>)}<h3 className="finance-breakdown-title">細項成本排行</h3>{byItem.slice(0, 10).map((item) => <div className="finance-category-stat" key={item.item}><span>{item.item}</span><strong>NT$ {item.amount.toLocaleString("zh-TW")}</strong></div>)}{largestItem && <p className="finance-ai-note">目前範圍內支出最高的細項是「{largestItem.item}」，共 NT$ {largestItem.amount.toLocaleString("zh-TW")}。AI 分析將以這些明細進一步判斷成本異常與變化原因。</p>}</section>
+    <form className="finance-form quick-expense-form" onSubmit={submit}><h2>{editingId ? "修改支出" : "新增支出"}</h2><label>費用類別<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label><div className="category-create"><input aria-label="新增支出類別" placeholder="輸入新類別" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} /><button type="button" onClick={addCategory}>新增類別</button></div><label>費用細項<input autoFocus placeholder="例如：雞蛋、洗衣、電費" value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })} /></label><label className="amount-field">金額<input inputMode="decimal" type="number" min="1" placeholder="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></label><details className="optional-expense-fields"><summary>更多資訊（選填）</summary><label>日期<input type="date" value={form.transactionDate} onChange={(e) => setForm({ ...form, transactionDate: e.target.value })} /></label><label>付款方式<select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>{methods.map((item) => <option key={item}>{item}</option>)}</select></label><label>供應商<input value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} /></label><label>備註<textarea rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label><label className="receipt-input">收據照片<input type="file" accept="image/*" capture="environment" onChange={(e) => setReceipt(e.target.files?.[0] ?? null)} /></label></details><button className="primary" type="submit">儲存支出</button><p className="finance-note">儲存後立即完成，背景自動同步。</p></form>
+    <section className="finance-list"><h2>查詢結果</h2>{filteredRows.slice(0, 50).map((row) => <article className="expense-row" key={row.syncClientId}><div><strong>{row.item}</strong><small>{row.transactionDate} · {row.category} · {row.paymentMethod}</small></div><b>NT$ {row.amount.toLocaleString("zh-TW")}</b><em className={row.synced ? "synced" : "pending"}>{row.synced ? "已同步" : "待同步"}</em><div className="expense-actions"><button type="button" className="inline-button" onClick={() => editExpense(row)}>編輯</button><button type="button" className="inline-button danger-text" onClick={() => deleteExpense(row)}>刪除</button></div></article>)}{!filteredRows.length && <p className="finance-note">此期間尚無支出。</p>}</section>
+    <section className="finance-calculator" aria-label="快速輸入金額"><div className="finance-category-grid"><button type="button" className="finance-add-category" onClick={() => setMessage("請使用下方新增類別欄位建立類別")}>＋<small>新增分類</small></button>{categories.map((category) => <button type="button" className={form.category === category ? "selected" : ""} key={category} onClick={() => setForm((current) => ({ ...current, category }))}><span>{categoryIcons[category] ?? "▦"}</span><small>{category}</small></button>)}</div><div className="finance-amount-display">NT$ {calculator || form.amount || "0"}</div><div className="finance-keypad">{["7","8","9","÷","AC","4","5","6","×","⌫","1","2","3","＋","OK","00","0",".","－"].map((keyValue) => <button type="button" className={keyValue === "OK" ? "ok" : keyValue === "AC" || keyValue === "⌫" ? "utility" : ""} key={keyValue} onClick={() => pressCalculator(keyValue)}>{keyValue}</button>)}</div></section>
+  </main>;
+}
