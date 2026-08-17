@@ -3,14 +3,14 @@ import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "00000000-0000-4000-8000-000000000000";
+const SITE_CREATOR_DEFAULT_DATABASE_ID =
+  "00789e0a-7817-409e-928c-35e106ef9d66";
 
-// Manual Cloudflare deployments must provide the real D1 database ID as a
-// build variable. The placeholder remains useful for local previews only.
+// Manual Cloudflare deployments may override this with a build variable when
+// using another database; the configured default belongs to this project.
 const cloudflareD1DatabaseId =
   process.env.CLOUDFLARE_D1_DATABASE_ID?.trim() ||
-  SITE_CREATOR_PLACEHOLDER_DATABASE_ID;
+  SITE_CREATOR_DEFAULT_DATABASE_ID;
 
 const { d1, r2 } = hostingConfig;
 
