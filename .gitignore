@@ -12,3 +12,4 @@ work/
 dist/
 node_modules/
 test-artifacts/
+fangtang-d1-backup*.json
