@@ -16,9 +16,19 @@ FANGTANG_EXPORT_TOKEN=<一次性隨機長字串>
 
 不要把 Token 寫入 Git、前端程式、URL 或聊天訊息。匯出完成後應刪除或輪替此 Secret。
 
+若要直接從已登入的舊工作台瀏覽器下載，另外設定部署變數：
+
+```text
+FANGTANG_EXPORT_ENABLED=true
+```
+
+只有已登入 Sites Session 且此變數為 `true` 時，設定頁的下載連結才會工作；未登入的外部請求仍會被 Sites 擋下。
+
 ## 匯出方式
 
-在本機執行，Token 只放在環境變數：
+若使用本機命令列，必須同時具備舊工作台的有效登入／代理環境與 Token；單純從未登入的 Terminal 呼叫會先收到 Sites 的登入 HTML，而不是 JSON。優先使用已登入工作台設定頁的下載連結。
+
+若環境允許命令列帶入授權，Token 只放在環境變數：
 
 ```bash
 export FANGTANG_EXPORT_TOKEN='由你產生的一次性Token'

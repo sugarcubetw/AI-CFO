@@ -32,6 +32,11 @@ function configuredExportToken() {
   return typeof token === "string" ? token.trim() : "";
 }
 
+function authenticatedSessionAllowed() {
+  const values = env as unknown as Record<string, unknown>;
+  return values.FANGTANG_EXPORT_ENABLED === "true";
+}
+
 function requestExportToken(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
   if (authorization.startsWith("Bearer ")) return authorization.slice(7).trim();
@@ -62,10 +67,13 @@ async function sha256(value: string) {
 export async function GET(request: Request) {
   const expected = configuredExportToken();
   const provided = requestExportToken(request);
-  if (!expected) {
+  const signedInUser = request.headers.get("oai-authenticated-user-id")?.trim();
+  const tokenAuthorized = Boolean(expected && provided && provided === expected);
+  const sessionAuthorized = Boolean(signedInUser && authenticatedSessionAllowed());
+  if (!expected && !sessionAuthorized) {
     return Response.json({ error: "匯出功能尚未設定 FANGTANG_EXPORT_TOKEN" }, { status: 503 });
   }
-  if (!provided || provided !== expected) {
+  if (!tokenAuthorized && !sessionAuthorized) {
     return Response.json({ error: "匯出 Token 無效" }, { status: 401 });
   }
 
