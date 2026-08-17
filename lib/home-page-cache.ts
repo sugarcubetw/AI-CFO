@@ -1,5 +1,5 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { queryBaseData } from "./base-data-query";
+import { invalidateCalendarCache } from "./calendar-cache";
 import { queryOrders } from "./order-query";
 import { queryPrepDemand } from "./prep-query";
 
@@ -40,25 +40,38 @@ async function queryHomePageData(date: string) {
   };
 }
 
-// `date` is serialized into the unstable_cache key, producing a distinct entry
-// equivalent to ["home-page-data", "YYYY-MM-DD"]. This prevents yesterday's
-// entry from being served after Taipei midnight even before the TTL expires.
-const cachedHomePageData = unstable_cache(
-  queryHomePageData,
-  ["home-page-data"],
-  { tags: [HOME_PAGE_CACHE_TAG], revalidate: HOME_PAGE_CACHE_TTL_SECONDS },
-);
+type HomePageCacheEntry = {
+  expiresAt: number;
+  value: Awaited<ReturnType<typeof queryHomePageData>>;
+};
+
+// Use a Worker-compatible per-isolate cache instead of importing Next.js
+// `unstable_cache`, which is not implemented consistently by Vinext on
+// Cloudflare Workers.  The date is part of the key so a Taipei midnight never
+// serves yesterday's home data, and writes clear the map through the existing
+// invalidation function.
+const homePageCache = new Map<string, HomePageCacheEntry>();
 
 export async function getHomePageData(date: string) {
+  const key = `home-page-data:${date}`;
+  const cached = homePageCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
   try {
-    return await cachedHomePageData(date);
+    const value = await queryHomePageData(date);
+    homePageCache.set(key, {
+      value,
+      expiresAt: Date.now() + HOME_PAGE_CACHE_TTL_SECONDS * 1000,
+    });
+    return value;
   } catch (error) {
     console.error("[home-page-cache] cache read failed; querying D1 directly", error);
+    if (cached) return cached.value;
     return queryHomePageData(date);
   }
 }
 
 export function invalidateHomePageCache() {
-  revalidateTag(HOME_PAGE_CACHE_TAG, { expire: 0 });
-  revalidateTag(CALENDAR_CACHE_TAG, { expire: 0 });
+  homePageCache.clear();
+  invalidateCalendarCache();
 }
