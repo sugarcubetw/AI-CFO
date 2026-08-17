@@ -20,6 +20,9 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  // The generated Wrangler config lives in dist/server, while Drizzle's
+  // ordered SQL migrations remain at the repository root.
+  migrations_dir: "../../drizzle",
   d1_databases: d1
     ? [
         {
