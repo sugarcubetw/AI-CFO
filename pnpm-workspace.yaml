@@ -1,4 +1,9 @@
-allowBuilds:
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  workerd: set this to true or false
+packages:
+  - '.'
+
+# Keep the native packages required by the Vinext/Cloudflare build enabled
+# when Cloudflare runs `pnpm install --frozen-lockfile`.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd
