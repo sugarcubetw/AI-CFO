@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>方糖民宿｜財務模組規劃摘要</title>
+  <style>
+    :root { --ink:#173229; --muted:#62736c; --line:#d9e4de; --bg:#f5f8f6; --card:#fff; --brand:#1d6a48; --brand-soft:#e5f3eb; --amber:#a66a00; --amber-soft:#fff3d6; --red:#a63b35; --red-soft:#fde9e6; --blue:#235d8c; --blue-soft:#e5f1fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif; }
+    .wrap { max-width:1120px; margin:0 auto; padding:24px; }
+    header.hero { background:linear-gradient(135deg,#173f31,#23805a); color:#fff; border-radius:22px; padding:30px 32px; box-shadow:0 14px 30px #17322925; }
+    .eyebrow { margin:0 0 6px; color:#d7f2e2; font-size:13px; letter-spacing:.08em; }
+    h1,h2,h3 { line-height:1.25; margin:0; }
+    h1 { font-size:clamp(28px,5vw,44px); letter-spacing:-.03em; }
+    h2 { margin-bottom:14px; font-size:24px; }
+    h3 { font-size:18px; margin-bottom:8px; }
+    .hero p { max-width:760px; margin:14px 0 0; color:#e4f6eb; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 11px; font-size:13px; font-weight:700; background:#ffffff1f; color:#fff; }
+    main { display:grid; gap:18px; margin-top:20px; }
+    section.card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:24px; box-shadow:0 4px 14px #1732290b; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .mini { border:1px solid var(--line); border-radius:14px; padding:16px; background:#fbfdfc; }
+    .mini strong { display:block; font-size:18px; margin-bottom:4px; }
+    .status { display:inline-block; border-radius:999px; padding:2px 9px; font-size:12px; font-weight:700; }
+    .confirmed { color:var(--brand); background:var(--brand-soft); }
+    .future { color:var(--blue); background:var(--blue-soft); }
+    .pending { color:var(--amber); background:var(--amber-soft); }
+    .removed { color:var(--red); background:var(--red-soft); }
+    .flow { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:center; gap:10px; margin-top:14px; }
+    .flow .node { min-height:88px; display:flex; flex-direction:column; justify-content:center; border:1px solid var(--line); border-radius:14px; padding:14px; background:#fbfdfc; }
+    .flow .node b { font-size:17px; }
+    .arrow { color:var(--brand); font-size:24px; font-weight:700; text-align:center; }
+    ul,ol { margin:8px 0 0; padding-left:22px; }
+    li + li { margin-top:4px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+    th,td { padding:10px 9px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-weight:700; background:#f7faf8; }
+    code { padding:2px 5px; border-radius:5px; background:#edf3ef; color:#29483b; font-size:.92em; }
+    .callout { border-left:4px solid var(--brand); background:var(--brand-soft); padding:13px 16px; border-radius:0 12px 12px 0; margin-top:14px; }
+    .callout.warn { border-color:var(--amber); background:var(--amber-soft); }
+    .callout small { color:var(--muted); }
+    .two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+    details { border-top:1px solid var(--line); padding:12px 0; }
+    details:first-of-type { border-top:0; }
+    summary { cursor:pointer; font-weight:700; }
+    .question { display:grid; grid-template-columns:34px 1fr; gap:10px; align-items:start; }
+    .number { width:28px; height:28px; display:grid; place-items:center; border-radius:50%; color:#fff; background:var(--brand); font-weight:800; }
+    footer { color:var(--muted); font-size:13px; padding:6px 2px 24px; }
+    @media (max-width:760px) { .wrap { padding:14px; } header.hero { padding:24px 20px; border-radius:18px; } section.card { padding:18px; border-radius:15px; } .grid,.two { grid-template-columns:1fr; } .flow { grid-template-columns:1fr; } .arrow { transform:rotate(90deg); } table { display:block; overflow-x:auto; white-space:nowrap; } th,td { min-width:150px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <p class="eyebrow">FANGTANG GUESTHOUSE · FINANCE MODULE · 2026-08-18</p>
+      <h1>財務模組規劃摘要</h1>
+      <p>本文件整理目前討論後的功能邊界、收入認列規則、支出流程與尚待確認事項。這是規劃文件，尚不代表所有功能已完成開發。</p>
+      <div class="meta"><span class="pill">規劃中</span><span class="pill">先於 Cloudflare Worker 開發</span><span class="pill">營運站維持 chatgpt.site</span></div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>一、已確認的整體架構</h2>
+        <div class="grid">
+          <article class="mini"><span class="status confirmed">保留</span><strong>財務總覽</strong><span>查看本月已實現、未實現收入與整體摘要。</span></article>
+          <article class="mini"><span class="status confirmed">保留</span><strong>收入</strong><span>查看未來訂單、週收入、分房間收入與房間收益。</span></article>
+          <article class="mini"><span class="status confirmed">保留</span><strong>支出</strong><span>獨立頁面，快速輸入支出、查詢細項與成本分析。</span></article>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <article class="mini"><span class="status removed">暫時移除</span><strong>待收款</strong><span>目前不建立獨立頁面。</span></article>
+          <article class="mini"><span class="status removed">暫時移除</span><strong>月結</strong><span>月結與 AI 月報延後。</span></article>
+          <article class="mini"><span class="status removed">暫時移除</span><strong>財務設定</strong><span>設定先不放入財務模組頁面。</span></article>
+        </div>
+        <div class="callout"><b>資料原則：</b>收入直接讀取營運模組既有訂單／付款資料；財務模組不複製訂單。支出則由財務模組獨立保存。</div>
+      </section>
+
+      <section class="card">
+        <h2>二、資料與計算流程</h2>
+        <div class="flow">
+          <div class="node"><b>營運訂單</b><small>訂單、房號、住房日、每日房價、取消狀態</small></div><div class="arrow">→</div>
+          <div class="node"><b>收入計算</b><small>依住房日與每日房價拆分</small></div><div class="arrow">→</div>
+          <div class="node"><b>總覽／收入頁</b><small>已實現、未實現、週別與房間收益</small></div>
+        </div>
+        <div class="flow">
+          <div class="node"><b>支出輸入</b><small>人工快速輸入或收據拍照</small></div><div class="arrow">→</div>
+          <div class="node"><b>離線佇列</b><small>先寫入手機，連線後背景同步</small></div><div class="arrow">→</div>
+          <div class="node"><b>支出分析</b><small>大類、細項、廠商與期間統計</small></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>三、收入認列規則</h2>
+        <ul>
+          <li>收入依<strong>住房日</strong>判斷，不以訂單建立日或退房日作為主要分組。</li>
+          <li>住房日小於或等於今天：列為<strong>已實現收入</strong>。</li>
+          <li>住房日晚於今天：列為<strong>未實現收入</strong>。</li>
+          <li>已取消訂單不列入收入。</li>
+          <li>多晚訂單依每日房價分配到每個住房日、週別與房間。</li>
+          <li>OwlNest 未提供每晚房價時，以訂單總額 ÷ 住房晚數平均估算，並標示「估算」。</li>
+          <li>同一訂單包含多間房時，先以房間數平均拆分，再依住房晚數分配到各住房日，並標示「平均拆分」。</li>
+          <li>收益在本模組定義為<strong>訂單收入總額</strong>；平台佣金由支出模組另行記錄，不在此扣除。</li>
+        </ul>
+        <table>
+          <thead><tr><th>住房日</th><th>房號</th><th>每日房價</th><th>2026/08/18 判斷</th></tr></thead>
+          <tbody>
+            <tr><td>8/14</td><td>201</td><td>NT$3,200</td><td><span class="status confirmed">已實現</span></td></tr>
+            <tr><td>8/15</td><td>201</td><td>NT$3,600</td><td><span class="status confirmed">已實現</span></td></tr>
+            <tr><td>8/18</td><td>201</td><td>NT$4,200</td><td><span class="status confirmed">已實現</span></td></tr>
+            <tr><td>8/19</td><td>201</td><td>NT$3,200</td><td><span class="status future">未實現</span></td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><b>已確認：</b>退房日當天不算住房日；住房日為入住日起至退房日前一天。住房日小於或等於今天列為已實現，晚於今天列為未實現。</div>
+      </section>
+
+      <section class="card">
+        <h2>四、頁面規劃</h2>
+        <div class="two">
+          <article>
+            <h3>財務總覽</h3>
+            <ul>
+              <li>本月已實現收入</li><li>本月未實現收入</li><li>本月訂單收入合計</li><li>訂單數與住房晚數</li><li>快速連往收入、支出</li>
+            </ul>
+          </article>
+          <article>
+            <h3>收入</h3>
+            <ul>
+              <li>未來訂單列表</li><li>住房日、房號、房型、客戶與金額</li><li>週收入檢視</li><li>房間收益比較</li><li>取消訂單明確排除</li>
+            </ul>
+          </article>
+          <article>
+            <h3>支出（獨立頁面）</h3>
+            <ul>
+              <li>日期預設今天</li><li>快速輸入大類、細項、金額</li><li>可新增自訂類別</li><li>廠商、付款方式、備註為選填</li><li>查詢期間與細項成本排行</li>
+            </ul>
+          </article>
+          <article>
+            <h3>支出 AI（後續階段）</h3>
+            <ul>
+              <li>收據拍照後背景辨識品名、金額、分類、廠商</li><li>人工確認後才寫入正式支出</li><li>無收據則人工輸入並背景同步</li><li>食材等大類可下鑽至細項</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>五、已確認規則</h2>
+        <details open><summary>收入與住房日</summary><div class="question"><span class="number">1</span><p>退房日當天不算住房日；例如 8/14 入住、8/17 退房，計算 8/14–8/16 三晚。</p></div></details>
+        <details open><summary>每日房價與多房訂單</summary><div class="question"><span class="number">2</span><p>OwlNest 沒有每晚房價時，以訂單總額平均除以住房晚數估算；同一訂單多間房則平均拆分至各房，再分配至各住房日。</p></div></details>
+        <details open><summary>收益定義</summary><div class="question"><span class="number">3</span><p>收入頁只顯示訂單收入總額，不扣平台佣金；Booking／平台佣金在支出模組記錄。</p></div></details>
+        <details open><summary>未來訂單查詢</summary><div class="question"><span class="number">4</span><p>提供「未來 7 天、未來 14 天、本月、本季、自訂」下拉選擇，均以住房日查詢。</p></div></details>
+        <details open><summary>年繳費用與固定資產</summary><div class="question"><span class="number">5</span><p>年繳費用採每月攤提；固定資產盤點與折舊延後至第二階段。</p></div></details>
+        <details open><summary>權限</summary><div class="question"><span class="number">6</span><p>目前僅有管理者角色，擁有財務模組全部權限。</p></div></details>
+      </section>
+
+      <section class="card">
+        <h2>六、開發邊界與環境</h2>
+        <table>
+          <thead><tr><th>項目</th><th>目前決定</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>開發站</td><td><code>ai-cfo.dk8515.workers.dev</code></td><td>先在 Cloudflare Worker 開發與測試。</td></tr>
+            <tr><td>營運站</td><td><code>fangtang-mobile-reception.dk8515.chatgpt.site</code></td><td>現場營運使用，不因財務開發而中斷。</td></tr>
+            <tr><td>返回連結</td><td>返回營運工作台</td><td>財務頁首需提供固定返回連結。</td></tr>
+            <tr><td>訂單資料</td><td>營運模組為 SSOT</td><td>財務不複製訂單，只讀取現有資料。</td></tr>
+            <tr><td>支出同步</td><td>離線優先</td><td>先儲存手機，網路恢復後背景同步。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>七、建議下一步</h2>
+        <ol>
+          <li>先確認上方 8 個收入與資料規則問題。</li>
+          <li>確認收入頁的週別定義與房間收益口徑。</li>
+          <li>確認每日房價在 OwlNest 匯出資料中的欄位來源。</li>
+          <li>以 Cloudflare Worker 先做財務總覽與收入唯讀頁。</li>
+          <li>再做獨立支出頁的快速輸入與離線同步。</li>
+          <li>最後加入收據 AI 辨識與人工確認流程。</li>
+        </ol>
+        <div class="callout"><b>目前不開發：</b>待收款獨立頁、月結頁、財務設定頁、固定資產完整模組與自動 AI 月報。</div>
+      </section>
+    </main>
+    <footer>方糖民宿 AI CFO · Finance planning summary · 2026/08/18 · 本文件可直接交給後續 AI 或工程人員作為規劃基準。</footer>
+  </div>
+</body>
+</html>

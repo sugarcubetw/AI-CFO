@@ -1,27 +1,103 @@
-import { and, gte, lte, ne, sql } from "drizzle-orm";
+import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { expenses, reservations } from "../../../../db/schema";
+import { expenses, reservations, roomTypes } from "../../../../db/schema";
 import { cleanText, isIsoDate, jsonError } from "../../../../lib/server";
+
+type DayBucket = { date: string; realized: number; unrealized: number; total: number; rooms: number };
+type RoomBucket = { roomNumber: string; roomType: string; nights: number; realized: number; unrealized: number; total: number };
+
+function utcDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
+
+function nightsBetween(from: string, to: string) {
+  return Math.max(1, Math.round((utcDate(to).getTime() - utcDate(from).getTime()) / 86_400_000));
+}
+
+function todayTaipei() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const from = cleanText(url.searchParams.get("from"));
   const to = cleanText(url.searchParams.get("to"));
   if (!isIsoDate(from) || !isIsoDate(to) || from > to) return jsonError("日期區間無效");
+
   const db = getDb();
   const [orderRows, expenseRows] = await Promise.all([
-    db.select({ total: reservations.totalAmount, received: reservations.receivedAmount, balance: reservations.balanceAmount })
-      .from(reservations).where(and(gte(reservations.arrivalDate, from), lte(reservations.arrivalDate, to), ne(reservations.status, "cancelled"))),
-    db.select({ total: sql<number>`coalesce(sum(${expenses.amount}), 0)` }).from(expenses).where(and(gte(expenses.expenseDate, from), lte(expenses.expenseDate, to))),
+    db.select({
+      id: reservations.id,
+      sourceChannel: reservations.sourceChannel,
+      guestName: reservations.guestName,
+      arrivalDate: reservations.arrivalDate,
+      departureDate: reservations.departureDate,
+      roomNumber: reservations.roomNumber,
+      roomType: roomTypes.displayName,
+      status: reservations.status,
+      createdAt: reservations.createdAt,
+      totalAmount: reservations.totalAmount,
+      receivedAmount: reservations.receivedAmount,
+      balanceAmount: reservations.balanceAmount,
+    }).from(reservations)
+      .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+      .where(and(lte(reservations.arrivalDate, to), gte(reservations.departureDate, from), ne(reservations.status, "cancelled"))),
+    db.select({ amount: expenses.amount }).from(expenses).where(and(gte(expenses.expenseDate, from), lte(expenses.expenseDate, to))),
   ]);
+
+  const today = todayTaipei();
+  const daily = new Map<string, DayBucket>();
+  const rooms = new Map<string, RoomBucket>();
+  const orders = orderRows.map((row) => {
+    const nights = nightsBetween(row.arrivalDate, row.departureDate);
+    const nightly = (row.totalAmount ?? 0) / nights;
+    let allocation = 0;
+    let realized = 0;
+    let unrealized = 0;
+    for (let cursor = utcDate(row.arrivalDate); cursor < utcDate(row.departureDate); cursor = new Date(cursor.getTime() + 86_400_000)) {
+      const date = isoDate(cursor);
+      if (date < from || date > to) continue;
+      const amount = Math.round(nightly);
+      allocation += amount;
+      const isRealized = date <= today;
+      if (isRealized) realized += amount;
+      else unrealized += amount;
+      const bucket = daily.get(date) ?? { date, realized: 0, unrealized: 0, total: 0, rooms: 0 };
+      bucket[isRealized ? "realized" : "unrealized"] += amount;
+      bucket.total += amount;
+      bucket.rooms += 1;
+      daily.set(date, bucket);
+      const roomNumber = row.roomNumber ?? "未分房";
+      const room = rooms.get(roomNumber) ?? { roomNumber, roomType: row.roomType ?? "待設定房型", nights: 0, realized: 0, unrealized: 0, total: 0 };
+      room.nights += 1;
+      room[isRealized ? "realized" : "unrealized"] += amount;
+      room.total += amount;
+      rooms.set(roomNumber, room);
+    }
+    return { ...row, allocation, realized, unrealized, nights, roomType: row.roomType ?? "待設定房型" };
+  }).filter((row) => row.allocation > 0).sort((a, b) => a.arrivalDate.localeCompare(b.arrivalDate) || a.createdAt.localeCompare(b.createdAt));
+
+  const expected = orders.reduce((sum, row) => sum + row.allocation, 0);
+  const realized = orders.reduce((sum, row) => sum + row.realized, 0);
+  const unrealized = orders.reduce((sum, row) => sum + row.unrealized, 0);
+  const expensesTotal = expenseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
   return Response.json({
-    from, to,
+    from,
+    to,
     revenue: {
-      expected: orderRows.reduce((sum, row) => sum + (row.total ?? 0), 0),
-      received: orderRows.reduce((sum, row) => sum + (row.received ?? 0), 0),
-      pending: orderRows.reduce((sum, row) => sum + (row.balance ?? 0), 0),
-      orderCount: orderRows.length,
+      expected,
+      realized,
+      unrealized,
+      received: orderRows.reduce((sum, row) => sum + (row.receivedAmount ?? 0), 0),
+      pending: orderRows.reduce((sum, row) => sum + (row.balanceAmount ?? 0), 0),
+      orderCount: orders.length,
     },
-    expenses: Number(expenseRows[0]?.total ?? 0),
+    expenses: expensesTotal,
+    daily: Array.from(daily.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    rooms: Array.from(rooms.values()).sort((a, b) => b.total - a.total),
+    orders,
   });
 }
