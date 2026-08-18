@@ -11,6 +11,9 @@ export type OwlNestOrderListRow = {
   totalAmount: number;
   receivedAmount: number;
   balanceAmount: number;
+  adults: number | null;
+  children: number | null;
+  infants: number | null;
   sourceChannel: string;
   otaExternalId: string | null;
   paymentMethod: string | null;
@@ -69,6 +72,12 @@ function amount(value: string) {
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
+function integer(value: string) {
+  const cleaned = value.replace(/[^0-9-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : null;
+}
+
 function date(value: string) {
   const normalized = value.trim().replace(/[/.]/g, "-");
   return /^\d{4}-\d{1,2}-\d{1,2}$/.test(normalized)
@@ -106,9 +115,11 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
   const delimiter = detectDelimiter(lines[0]);
   const headers = splitDelimited(lines[0], delimiter).map(normalizeHeader);
   const warnings: string[] = [];
-  const required = ["訂單編號", "入住日期", "退房日期"];
+  const required = ["訂單編號"];
   for (const header of required) if (!headers.some((item) => item === header || item.includes(header))) warnings.push(`缺少欄位：${header}`);
-  const hasCombinedName = headers.some((item) => item === "姓名" || item.includes("姓名") || item.includes("旅客姓名"));
+  if (!headers.some((item) => ["入住日期", "入住時間", "入住日", "Check-in"].some((alias) => item === alias || item.includes(alias)))) warnings.push("缺少欄位：入住日期／入住時間");
+  if (!headers.some((item) => ["退房日期", "退房時間", "退房日", "Check-out"].some((alias) => item === alias || item.includes(alias)))) warnings.push("缺少欄位：退房日期／退房時間");
+  const hasCombinedName = headers.some((item) => item === "姓名" || item === "訂購人" || item === "顧客" || item.includes("姓名") || item.includes("旅客姓名"));
   const hasSplitName = headers.some((item) => item === "姓") && headers.some((item) => item === "名");
   if (!hasCombinedName && !hasSplitName) warnings.push("缺少欄位：姓名");
   const rows: OwlNestOrderListRow[] = [];
@@ -117,27 +128,30 @@ export function parseOwlNestOrderList(input: string): OwlNestOrderListParseResul
     const values = splitDelimited(lines[index], delimiter);
     const raw = Object.fromEntries(headers.map((header, column) => [header, values[column] ?? ""]));
     const orderId = text(raw, ["訂單編號", "訂單號碼", "Order ID"]);
-    const arrivalDate = date(text(raw, ["入住日期", "入住日", "Check-in"]));
-    const departureDate = date(text(raw, ["退房日期", "退房日", "Check-out"]));
+    const arrivalDate = date(text(raw, ["入住日期", "入住時間", "入住日", "Check-in"]));
+    const departureDate = date(text(raw, ["退房日期", "退房時間", "退房日", "Check-out"]));
     const guestName = text(raw, ["姓名", "訂購人", "旅客姓名"]) || `${text(raw, ["姓", "姓氏"])}${text(raw, ["名", "名字"])}`.trim();
     if (!orderId || !arrivalDate || !departureDate || !guestName) {
       errors.push({ row: index + 1, reason: "訂單編號、入住/退房日期、姓名為必要欄位" });
       continue;
     }
     const sourceValue = text(raw, ["訂單來源", "來源", "Source"]);
-    const totalAmount = amount(text(raw, ["總金額", "總額", "自訂應收總額"]));
+    const totalAmount = amount(text(raw, ["總金額", "總額", "價格", "自訂應收總額"]));
     const receivedAmount = amount(text(raw, ["已收", "已收金額"]));
     const listedBalance = text(raw, ["未收", "未收金額", "剩餘尾款"]);
     const balanceAmount = listedBalance ? amount(listedBalance) : Math.max(0, totalAmount - receivedAmount);
-    const roomValue = text(raw, ["客房類別", "房型", "客房"]);
+    const roomValue = text(raw, ["客房類別", "房型房號", "房型", "客房"]);
     const roomInfo = room(roomValue);
     if (!roomTypes.some(([name]) => roomValue.includes(name))) warnings.push(`訂單 ${orderId} 的房型未對應主檔`);
     if (roomInfo.roomTypeNames.length > 1) warnings.push(`訂單 ${orderId} 含多間房；OwlNest 訂單列表未提供入住人數，須人工核對`);
     if (!sourceValue) warnings.push(`訂單 ${orderId} 缺少訂單來源`);
     if (!text(raw, ["付款狀態", "付款狀態說明"])) warnings.push(`訂單 ${orderId} 缺少付款狀態`);
     rows.push({
-      orderId, orderedAt: date(text(raw, ["訂購時間", "訂單時間", "建立時間"])) || text(raw, ["訂購時間", "訂單時間", "建立時間"]) || null,
+      orderId, orderedAt: date(text(raw, ["訂購日期", "訂購時間", "訂單日期", "訂單時間", "建立時間"])) || text(raw, ["訂購日期", "訂購時間", "訂單日期", "訂單時間", "建立時間"]) || null,
       arrivalDate, departureDate, guestName, ...roomInfo, totalAmount, receivedAmount, balanceAmount,
+      adults: integer(text(raw, ["成人", "大人", "成人數"])),
+      children: integer(text(raw, ["孩童", "小孩", "兒童", "孩童數"])),
+      infants: integer(text(raw, ["嬰幼兒", "嬰兒", "嬰幼兒數"])),
       sourceChannel: source(sourceValue), otaExternalId: otaId(text(raw, ["OTA訂單編號", "OTA編號"]), sourceValue),
       paymentMethod: text(raw, ["付款方式", "官網金流", "支付方式"]) || null,
       paymentStatus: text(raw, ["付款狀態", "付款狀態說明"]) || null, raw,

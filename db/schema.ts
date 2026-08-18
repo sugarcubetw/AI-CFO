@@ -51,6 +51,23 @@ export const reservations = sqliteTable("reservations", {
   index("idx_reservations_created_read").on(table.createdAt, table.readAt),
 ]);
 
+// A reservation may contain more than one room.  `reservations.room_number`
+// remains as the legacy/primary room for existing screens, while this table is
+// the authoritative room allocation list used for conflict checks and room
+// level revenue analysis.
+export const reservationRooms = sqliteTable("reservation_rooms", {
+  id: text("id").primaryKey(),
+  reservationId: text("reservation_id").notNull().references(() => reservations.id, { onDelete: "cascade" }),
+  roomNumber: text("room_number").notNull().references(() => rooms.number),
+  roomTypeId: text("room_type_id").references(() => roomTypes.id),
+  allocatedAmount: integer("allocated_amount").notNull().default(0),
+  allocationMethod: text("allocation_method").notNull().default("equal"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("idx_reservation_rooms_reservation_room").on(table.reservationId, table.roomNumber),
+  index("idx_reservation_rooms_room").on(table.roomNumber),
+]);
+
 export const reservationEvents = sqliteTable("reservation_events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   reservationId: text("reservation_id").notNull().references(() => reservations.id),

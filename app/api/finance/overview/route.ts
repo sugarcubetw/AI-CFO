@@ -1,6 +1,6 @@
 import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { expenses, reservations, roomTypes } from "../../../../db/schema";
+import { expenses, reservationRooms, reservations, roomTypes } from "../../../../db/schema";
 import { cleanText, isIsoDate, jsonError } from "../../../../lib/server";
 
 type StayDetail = {
@@ -16,6 +16,7 @@ type StayDetail = {
 };
 type DayBucket = { date: string; realized: number; unrealized: number; total: number; rooms: number; stays: StayDetail[] };
 type RoomBucket = { roomNumber: string; roomType: string; nights: number; realized: number; unrealized: number; total: number; stays: StayDetail[] };
+type RoomAllocation = { roomNumber: string; roomType: string; allocatedAmount: number };
 
 function utcDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
   if (!isIsoDate(from) || !isIsoDate(to) || from > to) return jsonError("日期區間無效");
 
   const db = getDb();
-  const [orderRows, expenseRows] = await Promise.all([
+  const [orderRows, expenseRows, allocationRows] = await Promise.all([
     db.select({
       id: reservations.id,
       sourceChannel: reservations.sourceChannel,
@@ -57,51 +58,78 @@ export async function GET(request: Request) {
       .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
       .where(and(lte(reservations.arrivalDate, to), gte(reservations.departureDate, from), ne(reservations.status, "cancelled"))),
     db.select({ amount: expenses.amount }).from(expenses).where(and(gte(expenses.expenseDate, from), lte(expenses.expenseDate, to))),
+    db.select({
+      reservationId: reservationRooms.reservationId,
+      roomNumber: reservationRooms.roomNumber,
+      allocatedAmount: reservationRooms.allocatedAmount,
+      roomType: roomTypes.displayName,
+    }).from(reservationRooms).leftJoin(roomTypes, eq(reservationRooms.roomTypeId, roomTypes.id)),
   ]);
 
   const today = todayTaipei();
   const daily = new Map<string, DayBucket>();
   const rooms = new Map<string, RoomBucket>();
+  const allocationsByReservation = new Map<string, RoomAllocation[]>();
+  for (const row of allocationRows) {
+    const current = allocationsByReservation.get(row.reservationId) ?? [];
+    current.push({ roomNumber: row.roomNumber, roomType: row.roomType ?? "待設定房型", allocatedAmount: row.allocatedAmount ?? 0 });
+    allocationsByReservation.set(row.reservationId, current);
+  }
   const orders = orderRows.map((row) => {
     const nights = nightsBetween(row.arrivalDate, row.departureDate);
-    const nightly = (row.totalAmount ?? 0) / nights;
+    const roomAllocations = allocationsByReservation.get(row.id)?.length
+      ? allocationsByReservation.get(row.id)!
+      : [{ roomNumber: row.roomNumber ?? "未分房", roomType: row.roomType ?? "待設定房型", allocatedAmount: row.totalAmount ?? 0 }];
+    const roomNumbers = roomAllocations.map((allocation) => allocation.roomNumber);
     let allocation = 0;
     let realized = 0;
     let unrealized = 0;
-    for (let cursor = utcDate(row.arrivalDate); cursor < utcDate(row.departureDate); cursor = new Date(cursor.getTime() + 86_400_000)) {
-      const date = isoDate(cursor);
-      if (date < from || date > to) continue;
-      const amount = Math.round(nightly);
-      allocation += amount;
-      const isRealized = date <= today;
-      if (isRealized) realized += amount;
-      else unrealized += amount;
-      const detail: StayDetail = {
-        date,
-        id: row.id,
-        guestName: row.guestName,
-        roomNumber: row.roomNumber,
-        roomType: row.roomType ?? "待設定房型",
-        arrivalDate: row.arrivalDate,
-        departureDate: row.departureDate,
-        amount,
-        realized: isRealized,
-      };
-      const bucket = daily.get(date) ?? { date, realized: 0, unrealized: 0, total: 0, rooms: 0, stays: [] };
-      bucket[isRealized ? "realized" : "unrealized"] += amount;
-      bucket.total += amount;
-      bucket.rooms += 1;
-      bucket.stays.push(detail);
-      daily.set(date, bucket);
-      const roomNumber = row.roomNumber ?? "未分房";
-      const room = rooms.get(roomNumber) ?? { roomNumber, roomType: row.roomType ?? "待設定房型", nights: 0, realized: 0, unrealized: 0, total: 0, stays: [] };
-      room.nights += 1;
-      room[isRealized ? "realized" : "unrealized"] += amount;
-      room.total += amount;
-      room.stays.push(detail);
-      rooms.set(roomNumber, room);
+    for (const roomAllocation of roomAllocations) {
+      const nightly = roomAllocation.allocatedAmount / nights;
+      for (let cursor = utcDate(row.arrivalDate); cursor < utcDate(row.departureDate); cursor = new Date(cursor.getTime() + 86_400_000)) {
+        const date = isoDate(cursor);
+        if (date < from || date > to) continue;
+        const amount = Math.round(nightly);
+        allocation += amount;
+        const isRealized = date <= today;
+        if (isRealized) realized += amount;
+        else unrealized += amount;
+        const detail: StayDetail = {
+          date,
+          id: row.id,
+          guestName: row.guestName,
+          roomNumber: roomAllocation.roomNumber === "未分房" ? null : roomAllocation.roomNumber,
+          roomType: roomAllocation.roomType,
+          arrivalDate: row.arrivalDate,
+          departureDate: row.departureDate,
+          amount,
+          realized: isRealized,
+        };
+        const bucket = daily.get(date) ?? { date, realized: 0, unrealized: 0, total: 0, rooms: 0, stays: [] };
+        bucket[isRealized ? "realized" : "unrealized"] += amount;
+        bucket.total += amount;
+        bucket.rooms += 1;
+        bucket.stays.push(detail);
+        daily.set(date, bucket);
+        const room = rooms.get(roomAllocation.roomNumber) ?? { roomNumber: roomAllocation.roomNumber, roomType: roomAllocation.roomType, nights: 0, realized: 0, unrealized: 0, total: 0, stays: [] };
+        room.nights += 1;
+        room[isRealized ? "realized" : "unrealized"] += amount;
+        room.total += amount;
+        room.stays.push(detail);
+        rooms.set(roomAllocation.roomNumber, room);
+      }
     }
-    return { ...row, allocation, realized, unrealized, nights, roomType: row.roomType ?? "待設定房型" };
+    return {
+      ...row,
+      allocation,
+      realized,
+      unrealized,
+      nights,
+      roomType: row.roomType ?? roomAllocations[0]?.roomType ?? "待設定房型",
+      roomNumbers,
+      roomLabel: roomNumbers.join("／"),
+      roomAllocations: roomAllocations.map(({ roomNumber, roomType, allocatedAmount }) => ({ roomNumber, roomType, allocatedAmount })),
+    };
   }).filter((row) => row.allocation > 0).sort((a, b) => a.arrivalDate.localeCompare(b.arrivalDate) || a.createdAt.localeCompare(b.createdAt));
 
   const expected = orders.reduce((sum, row) => sum + row.allocation, 0);

@@ -1,6 +1,6 @@
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { auditLog, orderReconciliationItems, orderReconciliationRuns, reservations, roomTypes } from "../../../../db/schema";
+import { auditLog, orderReconciliationItems, orderReconciliationRuns, reservationRooms, reservations, roomTypes } from "../../../../db/schema";
 import { parseOwlNestOrderList, OwlNestOrderListRow } from "../../../../lib/owlting-order-list-parser";
 import { actorId, cleanText, isIsoDate, jsonError } from "../../../../lib/server";
 import { invalidateHomePageCache } from "../../../../lib/home-page-cache";
@@ -28,6 +28,13 @@ function difference(existing: typeof reservations.$inferSelect, incoming: OwlNes
   return values;
 }
 
+function splitAmount(amount: number, count: number) {
+  if (count <= 0) return [];
+  const base = Math.floor(amount / count);
+  const remainder = amount - base * count;
+  return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
+}
+
 async function hashContent(content: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -49,6 +56,9 @@ export async function POST(request: Request) {
   const periodTo = cleanText(body.periodTo);
   if (!isIsoDate(periodFrom) || !isIsoDate(periodTo) || periodFrom > periodTo) return jsonError("入住區間無效");
   const parsed = Array.isArray(body.rows) ? { rows: body.rows, errors: [], warnings: [] } : parseOwlNestOrderList(cleanText(body.content));
+  // Older clients may send only the legacy primary room; normalize that shape
+  // before conflict checks and multi-room allocation writes.
+  for (const row of parsed.rows) row.roomNumbers = row.roomNumbers?.length ? row.roomNumbers : row.roomNumber ? [row.roomNumber] : [];
   if (!parsed.rows.length) return Response.json({ error: "找不到可匯入的 OwlNest 訂單列", errors: parsed.errors, warnings: parsed.warnings }, { status: 400 });
   if (parsed.rows.length > 2000) return jsonError("單次最多匯入 2,000 筆");
   const invalid = parsed.rows.filter((row) => !isIsoDate(row.arrivalDate) || !isIsoDate(row.departureDate) || row.arrivalDate >= row.departureDate);
@@ -59,6 +69,29 @@ export async function POST(request: Request) {
   const contentHash = await hashContent(body.content ?? JSON.stringify(body.rows));
   const roomRows = await db.select().from(roomTypes);
   const existingRows = await db.select().from(reservations).where(and(lte(reservations.arrivalDate, periodTo), gte(reservations.departureDate, periodFrom)));
+  const existingRoomRows = existingRows.length
+    ? await db.select().from(reservationRooms).where(inArray(reservationRooms.reservationId, existingRows.map((row) => row.id)))
+    : [];
+  const roomsByReservation = new Map<string, string[]>();
+  for (const row of existingRows) {
+    const allocated = existingRoomRows.filter((room) => room.reservationId === row.id).map((room) => room.roomNumber);
+    roomsByReservation.set(row.id, allocated.length ? allocated : row.roomNumber ? [row.roomNumber] : []);
+  }
+  const conflicts: Array<{ orderId: string; incomingRooms: string[]; existingOrderId: string; existingRooms: string[]; arrivalDate: string; departureDate: string }> = [];
+  for (const incoming of parsed.rows) {
+    const incomingRooms = incoming.roomNumbers;
+    for (const existing of existingRows) {
+      if (existing.id === incoming.orderId || existing.status === "cancelled") continue;
+      if (!(existing.arrivalDate < incoming.departureDate && existing.departureDate > incoming.arrivalDate)) continue;
+      const existingRooms = roomsByReservation.get(existing.id) ?? [];
+      if (incomingRooms.some((room) => existingRooms.includes(room))) {
+        conflicts.push({ orderId: incoming.orderId, incomingRooms, existingOrderId: existing.id, existingRooms, arrivalDate: existing.arrivalDate, departureDate: existing.departureDate });
+      }
+    }
+  }
+  if (conflicts.length) {
+    return Response.json({ error: "房號在入住期間已有重疊訂單，未匯入任何資料", conflicts: conflicts.slice(0, 20) }, { status: 409 });
+  }
   const existingById = new Map(existingRows.map((row) => [row.id, row]));
   const seen = new Set<string>();
   const itemValues: Array<typeof orderReconciliationItems.$inferInsert> = [];
@@ -72,21 +105,38 @@ export async function POST(request: Request) {
     const roomType = roomRows.find((candidate) => candidate.sourceName === row.roomTypeName || candidate.displayName === row.roomTypeName);
     const existing = existingById.get(row.orderId);
     if (!existing) {
+      const roomNumbers = row.roomNumbers;
+      const primaryRoom = roomNumbers[0] ?? roomType?.defaultRoomNumber ?? row.roomNumber ?? null;
+      const actualAdults = row.adults ?? (row.roomNumbers.length > 1
+        ? row.roomNumbers.reduce((total, number) => total + estimatedGuestCount(number), 0)
+        : estimatedGuestCount(primaryRoom));
+      const actualChildren = row.children ?? 0;
+      const actualInfants = row.infants ?? 0;
+      const roomAmounts = splitAmount(row.totalAmount, roomNumbers.length);
       await db.insert(reservations).values({
         id: row.orderId, sourceSystem: "owlnest_export", sourceChannel: row.sourceChannel, otaExternalId: row.otaExternalId,
         eventType: "reconciled", status: "pending", guestName: row.guestName, arrivalDate: row.arrivalDate, departureDate: row.departureDate,
-        roomTypeId: roomType?.id ?? null, roomNumber: roomType?.defaultRoomNumber ?? row.roomNumber,
-        adults: row.roomNumbers.length > 1
-          ? row.roomNumbers.reduce((total, number) => total + estimatedGuestCount(number), 0)
-          : estimatedGuestCount(roomType?.defaultRoomNumber ?? row.roomNumber),
+        roomTypeId: roomType?.id ?? null, roomNumber: primaryRoom,
+        adults: actualAdults, children: actualChildren, infants: actualInfants,
         totalAmount: row.totalAmount, receivedAmount: row.receivedAmount, balanceAmount: row.balanceAmount,
         paymentMethod: row.paymentMethod, paymentStatus: row.paymentStatus ?? (row.receivedAmount > 0 ? "deposit_paid" : "pending"),
-        importState: "pending_review",
-        specialRequests: row.roomNumbers.length > 1
-          ? `多房訂單：${row.roomNumbers.join("、")}；OwlNest 訂單列表未提供入住人數，請人工核對`
+        importState: row.adults != null ? "confirmed" : "pending_review",
+        specialRequests: roomNumbers.length > 1
+          ? `多房訂單：${roomNumbers.join("、")}；房價未拆分，系統以房間數平均分攤${row.adults == null ? "；OwlNest 訂單列表未提供入住人數，請人工核對" : ""}`
           : "OwlNest 訂單列表核對匯入；訂單列表未提供入住人數，請人工核對",
         updatedAt: new Date().toISOString(),
       });
+      for (const [index, roomNumber] of roomNumbers.entries()) {
+        const roomTypeForAllocation = roomRows.find((candidate) => candidate.defaultRoomNumber === roomNumber);
+        await db.insert(reservationRooms).values({
+          id: `${row.orderId}:${roomNumber}`,
+          reservationId: row.orderId,
+          roomNumber,
+          roomTypeId: roomTypeForAllocation?.id ?? null,
+          allocatedAmount: roomAmounts[index] ?? 0,
+          allocationMethod: "equal",
+        });
+      }
       insertedCount += 1;
       itemValues.push({ runId, orderId: row.orderId, action: "inserted", differenceJson: null, sourceRowJson: JSON.stringify(row.raw) });
       continue;

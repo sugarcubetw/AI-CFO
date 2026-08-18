@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLog, mealRequirements, reservationEvents, reservations } from "../../../db/schema";
+import { auditLog, mealRequirements, reservationEvents, reservationRooms, reservations } from "../../../db/schema";
 import { actorId, cleanText, intValue, isIsoDate, jsonError } from "../../../lib/server";
 import { invalidateHomePageCache } from "../../../lib/home-page-cache";
 import { getCalendarOrders } from "../../../lib/calendar-cache";
@@ -25,7 +25,19 @@ async function findRoomConflict(
     departureDate: reservations.departureDate,
     guestName: reservations.guestName,
   }).from(reservations).where(eq(reservations.roomNumber, roomNumber));
-  return candidates.find((candidate) =>
+  const allocatedCandidates = await db.select({ reservationId: reservationRooms.reservationId }).from(reservationRooms).where(eq(reservationRooms.roomNumber, roomNumber));
+  const allocatedIds = new Set(allocatedCandidates.map((candidate) => candidate.reservationId));
+  const multiRoomCandidates = allocatedIds.size
+    ? await db.select({
+      id: reservations.id,
+      status: reservations.status,
+      arrivalDate: reservations.arrivalDate,
+      departureDate: reservations.departureDate,
+      guestName: reservations.guestName,
+    }).from(reservations).where(inArray(reservations.id, Array.from(allocatedIds)))
+    : [];
+  const allCandidates = [...candidates, ...multiRoomCandidates.filter((candidate) => !candidates.some((item) => item.id === candidate.id))];
+  return allCandidates.find((candidate) =>
     candidate.id !== excludeId &&
     candidate.status !== "cancelled" &&
     candidate.arrivalDate < departureDate &&
