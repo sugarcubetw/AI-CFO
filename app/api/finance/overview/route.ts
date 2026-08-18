@@ -3,8 +3,19 @@ import { getDb } from "../../../../db";
 import { expenses, reservations, roomTypes } from "../../../../db/schema";
 import { cleanText, isIsoDate, jsonError } from "../../../../lib/server";
 
-type DayBucket = { date: string; realized: number; unrealized: number; total: number; rooms: number };
-type RoomBucket = { roomNumber: string; roomType: string; nights: number; realized: number; unrealized: number; total: number };
+type StayDetail = {
+  date: string;
+  id: string;
+  guestName: string;
+  roomNumber: string | null;
+  roomType: string;
+  arrivalDate: string;
+  departureDate: string;
+  amount: number;
+  realized: boolean;
+};
+type DayBucket = { date: string; realized: number; unrealized: number; total: number; rooms: number; stays: StayDetail[] };
+type RoomBucket = { roomNumber: string; roomType: string; nights: number; realized: number; unrealized: number; total: number; stays: StayDetail[] };
 
 function utcDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -65,16 +76,29 @@ export async function GET(request: Request) {
       const isRealized = date <= today;
       if (isRealized) realized += amount;
       else unrealized += amount;
-      const bucket = daily.get(date) ?? { date, realized: 0, unrealized: 0, total: 0, rooms: 0 };
+      const detail: StayDetail = {
+        date,
+        id: row.id,
+        guestName: row.guestName,
+        roomNumber: row.roomNumber,
+        roomType: row.roomType ?? "待設定房型",
+        arrivalDate: row.arrivalDate,
+        departureDate: row.departureDate,
+        amount,
+        realized: isRealized,
+      };
+      const bucket = daily.get(date) ?? { date, realized: 0, unrealized: 0, total: 0, rooms: 0, stays: [] };
       bucket[isRealized ? "realized" : "unrealized"] += amount;
       bucket.total += amount;
       bucket.rooms += 1;
+      bucket.stays.push(detail);
       daily.set(date, bucket);
       const roomNumber = row.roomNumber ?? "未分房";
-      const room = rooms.get(roomNumber) ?? { roomNumber, roomType: row.roomType ?? "待設定房型", nights: 0, realized: 0, unrealized: 0, total: 0 };
+      const room = rooms.get(roomNumber) ?? { roomNumber, roomType: row.roomType ?? "待設定房型", nights: 0, realized: 0, unrealized: 0, total: 0, stays: [] };
       room.nights += 1;
       room[isRealized ? "realized" : "unrealized"] += amount;
       room.total += amount;
+      room.stays.push(detail);
       rooms.set(roomNumber, room);
     }
     return { ...row, allocation, realized, unrealized, nights, roomType: row.roomType ?? "待設定房型" };
