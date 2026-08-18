@@ -89,6 +89,25 @@ export async function POST(request: Request) {
       }
     }
   }
+  // Also reject two different rows in the same export claiming the same room
+  // for overlapping dates. This prevents a single batch from creating an
+  // internal double booking even when the database had no prior conflict.
+  for (let index = 0; index < parsed.rows.length; index += 1) {
+    const incoming = parsed.rows[index];
+    for (let priorIndex = 0; priorIndex < index; priorIndex += 1) {
+      const prior = parsed.rows[priorIndex];
+      if (!(prior.arrivalDate < incoming.departureDate && prior.departureDate > incoming.arrivalDate)) continue;
+      if (!incoming.roomNumbers.some((room) => prior.roomNumbers.includes(room))) continue;
+      conflicts.push({
+        orderId: incoming.orderId,
+        incomingRooms: incoming.roomNumbers,
+        existingOrderId: prior.orderId,
+        existingRooms: prior.roomNumbers,
+        arrivalDate: prior.arrivalDate,
+        departureDate: prior.departureDate,
+      });
+    }
+  }
   if (conflicts.length) {
     return Response.json({ error: "房號在入住期間已有重疊訂單，未匯入任何資料", conflicts: conflicts.slice(0, 20) }, { status: 409 });
   }
